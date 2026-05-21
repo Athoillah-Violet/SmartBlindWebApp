@@ -3,138 +3,140 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#0a0e1a" />
+  <meta name="theme-color" content="#F5F1E8" />
   <meta name="description" content="SmartBlind App - AI Smart Navigation For Blind People" />
   <title>SmartBlind App</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Loading overlay -->
-  <div id="loading-overlay" class="loading-overlay" aria-live="polite">
-    <div class="loading-content">
-      <div class="loading-ring"></div>
-      <div class="loading-ring loading-ring--2"></div>
-      <p class="loading-text">MENGHUBUNGKAN FIREBASE...</p>
-      <div class="loading-bar"><span class="loading-bar-fill"></span></div>
+  <!-- Cinematic atmosphere -->
+  <div class="atmosphere" aria-hidden="true">
+    <div class="atmosphere__vignette"></div>
+    <div class="atmosphere__grain"></div>
+    <div class="atmosphere__frame atmosphere__frame--top"></div>
+    <div class="atmosphere__frame atmosphere__frame--bottom"></div>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading-overlay" class="loading" aria-live="polite">
+    <div class="loading__inner">
+      <div class="loading__reel" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="loading__text">Menghubungkan ke Firebase</p>
+      <div class="loading__line"><span class="loading__line-fill"></span></div>
     </div>
   </div>
 
-  <!-- Cyberpunk background layers -->
-  <div class="bg-layer bg-layer--sky"></div>
-  <div class="bg-layer bg-layer--city"></div>
-  <div class="bg-layer bg-layer--glow"></div>
-  <div class="bg-scanlines" aria-hidden="true"></div>
-
   <div class="app">
-    <!-- Header -->
-    <header class="header glass-card">
-      <div class="header-logo" aria-hidden="true">
-        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="24" cy="24" r="22" stroke="url(#logoGrad)" stroke-width="2"/>
-          <path d="M14 28 L24 14 L34 28" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-          <circle cx="24" cy="30" r="4" fill="url(#logoGrad)"/>
-          <defs>
-            <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
-              <stop offset="0%" stop-color="#00f0ff"/>
-              <stop offset="50%" stop-color="#a855f7"/>
-              <stop offset="100%" stop-color="#ec4899"/>
-            </linearGradient>
-          </defs>
-        </svg>
+    <!-- Masthead -->
+    <header class="masthead card">
+      <div class="masthead__brand">
+        <div class="masthead__logo" aria-hidden="true">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.25"/>
+            <path d="M12 26 L20 12 L28 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="20" cy="27" r="2.5" fill="currentColor"/>
+          </svg>
+        </div>
+        <div class="masthead__titles">
+          <p class="masthead__kicker">Presented by SmartBlind</p>
+          <h1 class="masthead__title">Smart Blind App</h1>
+          <p class="masthead__subtitle">AI Smart Navigation For Blind People</p>
+        </div>
       </div>
-      <div class="header-text">
-        <h1 class="header-title">SMART BLIND APP</h1>
-        <p class="header-subtitle">AI Smart Navigation For Blind People</p>
-      </div>
-      <div class="connection-badge" id="connection-badge" title="Status koneksi">
-        <span class="connection-dot"></span>
-        <span class="connection-label">OFFLINE</span>
+      <div class="masthead__status" id="connection-badge" title="Status koneksi">
+        <span class="masthead__dot"></span>
+        <span class="masthead__connection-label">Offline</span>
       </div>
     </header>
 
-    <!-- Status Card -->
-    <section class="status-section" aria-labelledby="status-heading">
+    <!-- Status — hero editorial -->
+    <section class="hero" aria-labelledby="status-heading">
       <h2 id="status-heading" class="sr-only">Status Navigasi</h2>
-      <div id="status-card" class="status-card glass-card status-card--safe">
-        <div class="status-indicator" id="status-indicator" aria-hidden="true">
-          <div class="status-indicator-ring"></div>
-          <div class="status-indicator-core"></div>
+      <div id="status-card" class="hero__card card status-card--safe">
+        <div class="hero__meta">
+          <span class="hero__chapter">Scene I — Navigation</span>
+          <div class="hero__indicator" id="status-indicator" aria-hidden="true">
+            <span class="hero__indicator-dot"></span>
+          </div>
         </div>
-        <div class="status-icon" id="status-icon" aria-hidden="true"></div>
-        <p class="status-label">STATUS</p>
-        <p class="status-message" id="status-message">MENUNGGU DATA...</p>
-        <p class="status-raw" id="status-raw">—</p>
+        <div class="hero__icon" id="status-icon" aria-hidden="true"></div>
+        <p class="hero__label">Status</p>
+        <p class="hero__message" id="status-message">Menunggu data...</p>
+        <p class="hero__raw" id="status-raw">—</p>
       </div>
     </section>
 
-    <!-- Sensor Panels -->
-    <section class="sensor-section" aria-labelledby="sensor-heading">
-      <h2 id="sensor-heading" class="section-title">
-        <span class="section-title-line"></span>
-        PANEL SENSOR
-        <span class="section-title-line"></span>
-      </h2>
-      <div class="sensor-grid">
-        <article class="sensor-panel glass-card" id="sensor-kiri" data-direction="kiri">
-          <div class="sensor-panel-glow"></div>
-          <div class="sensor-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <!-- Sensors -->
+    <section class="sensors" aria-labelledby="sensor-heading">
+      <header class="section-head">
+        <h2 id="sensor-heading" class="section-head__title">Panel Sensor</h2>
+        <p class="section-head__desc">Pemantauan arah kiri, tengah, dan kanan</p>
+      </header>
+      <div class="sensors__grid">
+        <article class="sensor card" id="sensor-kiri" data-direction="kiri">
+          <div class="sensor__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M15 18l-6-6 6-6"/>
             </svg>
           </div>
-          <h3 class="sensor-name">Sensor Kiri</h3>
-          <p class="sensor-state" id="sensor-kiri-state">AMAN</p>
+          <h3 class="sensor__name">Kiri</h3>
+          <p class="sensor__state" id="sensor-kiri-state">Aman</p>
         </article>
 
-        <article class="sensor-panel glass-card" id="sensor-tengah" data-direction="depan">
-          <div class="sensor-panel-glow"></div>
-          <div class="sensor-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <article class="sensor card" id="sensor-tengah" data-direction="depan">
+          <div class="sensor__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M12 19V5M5 12l7-7 7 7"/>
             </svg>
           </div>
-          <h3 class="sensor-name">Sensor Tengah</h3>
-          <p class="sensor-state" id="sensor-tengah-state">AMAN</p>
+          <h3 class="sensor__name">Tengah</h3>
+          <p class="sensor__state" id="sensor-tengah-state">Aman</p>
         </article>
 
-        <article class="sensor-panel glass-card" id="sensor-kanan" data-direction="kanan">
-          <div class="sensor-panel-glow"></div>
-          <div class="sensor-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <article class="sensor card" id="sensor-kanan" data-direction="kanan">
+          <div class="sensor__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M9 18l6-6-6-6"/>
             </svg>
           </div>
-          <h3 class="sensor-name">Sensor Kanan</h3>
-          <p class="sensor-state" id="sensor-kanan-state">AMAN</p>
+          <h3 class="sensor__name">Kanan</h3>
+          <p class="sensor__state" id="sensor-kanan-state">Aman</p>
         </article>
       </div>
     </section>
 
-    <!-- Audio Control -->
-    <section class="audio-section glass-card" aria-labelledby="audio-heading">
-      <h2 id="audio-heading" class="section-title section-title--sm">
-        <span class="section-title-line"></span>
-        AUDIO CONTROL
-        <span class="section-title-line"></span>
-      </h2>
-      <div class="audio-controls">
-        <button type="button" id="btn-mute" class="btn btn--primary" aria-pressed="false">
-          <span class="btn-icon" id="mute-icon" aria-hidden="true">🔊</span>
-          <span id="mute-label">MUTE SUARA</span>
+    <!-- Audio -->
+    <section class="audio card" aria-labelledby="audio-heading">
+      <header class="section-head section-head--compact">
+        <h2 id="audio-heading" class="section-head__title">Audio Control</h2>
+      </header>
+      <div class="audio__actions">
+        <button type="button" id="btn-mute" class="btn btn--dark" aria-pressed="false">
+          <svg class="btn__icon" id="mute-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M11 5L6 9H3v6h3l5 4V5z"/>
+            <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+          </svg>
+          <span id="mute-label">Mute Suara</span>
         </button>
-        <button type="button" id="btn-test" class="btn btn--secondary">
-          <span class="btn-icon" aria-hidden="true">🎙</span>
-          TEST SUARA
+        <button type="button" id="btn-test" class="btn btn--outline">
+          <svg class="btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
+            <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v3"/>
+          </svg>
+          Test Suara
         </button>
       </div>
-      <p class="audio-hint">Suara otomatis saat status berubah · Bahasa Indonesia</p>
+      <p class="audio__hint">Suara otomatis saat status berubah · Bahasa Indonesia</p>
     </section>
 
     <footer class="footer">
-      <p>Realtime Firebase · SmartBlind v1.0</p>
+      <p class="footer__line">Realtime Firebase</p>
+      <p class="footer__credit">SmartBlind · Est. 2026</p>
     </footer>
   </div>
 

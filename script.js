@@ -63,7 +63,6 @@ const els = {
   sensorKananState: document.getElementById("sensor-kanan-state"),
   btnMute: document.getElementById("btn-mute"),
   btnTest: document.getElementById("btn-test"),
-  muteIcon: document.getElementById("mute-icon"),
   muteLabel: document.getElementById("mute-label"),
 };
 
@@ -93,9 +92,9 @@ function hideLoading() {
 
 function setConnected(connected) {
   els.connectionBadge.classList.toggle("connected", connected);
-  els.connectionBadge.querySelector(".connection-label").textContent = connected
-    ? "ONLINE"
-    : "OFFLINE";
+  els.connectionBadge.querySelector(".masthead__connection-label").textContent = connected
+    ? "Online"
+    : "Offline";
 }
 
 // ===== Speech =====
@@ -156,13 +155,10 @@ function updateSensorPanels(status) {
 
     if (isActive) {
       el.classList.add("active-danger");
-      stateEl.textContent = "HALANGAN";
-    } else if (status === "aman") {
-      el.classList.add("active-safe");
-      stateEl.textContent = "AMAN";
+      stateEl.textContent = "Halangan";
     } else {
       el.classList.add("active-safe");
-      stateEl.textContent = "AMAN";
+      stateEl.textContent = "Aman";
     }
   });
 }
@@ -171,7 +167,7 @@ function applyStatus(rawValue) {
   const status = normalizeStatus(rawValue);
 
   if (!status) {
-    els.statusMessage.textContent = "DATA TIDAK VALID";
+    els.statusMessage.textContent = "Data tidak valid";
     els.statusRaw.textContent = String(rawValue ?? "—");
     return;
   }
@@ -195,12 +191,16 @@ function applyStatus(rawValue) {
 }
 
 // ===== Audio Controls =====
+const MUTE_ICON_ON = `<path d="M11 5L6 9H3v6h3l5 4V5z"/><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>`;
+const MUTE_ICON_OFF = `<path d="M11 5L6 9H3v6h3l5 4V5z"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>`;
+
 function toggleMute() {
   isMuted = !isMuted;
   els.btnMute.classList.toggle("muted", isMuted);
   els.btnMute.setAttribute("aria-pressed", String(isMuted));
-  els.muteIcon.textContent = isMuted ? "🔇" : "🔊";
-  els.muteLabel.textContent = isMuted ? "UNMUTE SUARA" : "MUTE SUARA";
+  const svg = document.getElementById("mute-icon-svg");
+  if (svg) svg.innerHTML = isMuted ? MUTE_ICON_OFF : MUTE_ICON_ON;
+  els.muteLabel.textContent = isMuted ? "Unmute Suara" : "Mute Suara";
 
   if (isMuted) speechSynthesis.cancel();
 }
@@ -232,8 +232,8 @@ function initFirebase() {
       console.error("Firebase SDK error:", error);
       if (!firebaseConnected) {
         setConnected(false);
-        els.statusMessage.textContent = "GAGAL TERHUBUNG — COBA LAGI";
-        els.statusRaw.textContent = "ERROR";
+        els.statusMessage.textContent = "Gagal terhubung";
+        els.statusRaw.textContent = "Error";
       }
       hideLoading();
     }
@@ -287,7 +287,7 @@ async function init() {
     if (els.loading.classList.contains("hidden")) return;
     hideLoading();
     if (!firebaseConnected) {
-      els.statusMessage.textContent = "MENUNGGU DATA SENSOR...";
+      els.statusMessage.textContent = "Menunggu data sensor...";
     }
   }, 6000);
 
