@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0a0e1a" />
+  <meta name="description" content="SmartBlind App - AI Smart Navigation For Blind People" />
+  <title>SmartBlind App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- Loading overlay -->
+  <div id="loading-overlay" class="loading-overlay" aria-live="polite">
+    <div class="loading-content">
+      <div class="loading-ring"></div>
+      <div class="loading-ring loading-ring--2"></div>
+      <p class="loading-text">MENGHUBUNGKAN FIREBASE...</p>
+      <div class="loading-bar"><span class="loading-bar-fill"></span></div>
+    </div>
+  </div>
+
+  <!-- Cyberpunk background layers -->
+  <div class="bg-layer bg-layer--sky"></div>
+  <div class="bg-layer bg-layer--city"></div>
+  <div class="bg-layer bg-layer--glow"></div>
+  <div class="bg-scanlines" aria-hidden="true"></div>
+
+  <div class="app">
+    <!-- Header -->
+    <header class="header glass-card">
+      <div class="header-logo" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="22" stroke="url(#logoGrad)" stroke-width="2"/>
+          <path d="M14 28 L24 14 L34 28" stroke="url(#logoGrad)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <circle cx="24" cy="30" r="4" fill="url(#logoGrad)"/>
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48">
+              <stop offset="0%" stop-color="#00f0ff"/>
+              <stop offset="50%" stop-color="#a855f7"/>
+              <stop offset="100%" stop-color="#ec4899"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <div class="header-text">
+        <h1 class="header-title">SMART BLIND APP</h1>
+        <p class="header-subtitle">AI Smart Navigation For Blind People</p>
+      </div>
+      <div class="connection-badge" id="connection-badge" title="Status koneksi">
+        <span class="connection-dot"></span>
+        <span class="connection-label">OFFLINE</span>
+      </div>
+    </header>
+
+    <!-- Status Card -->
+    <section class="status-section" aria-labelledby="status-heading">
+      <h2 id="status-heading" class="sr-only">Status Navigasi</h2>
+      <div id="status-card" class="status-card glass-card status-card--safe">
+        <div class="status-indicator" id="status-indicator" aria-hidden="true">
+          <div class="status-indicator-ring"></div>
+          <div class="status-indicator-core"></div>
+        </div>
+        <div class="status-icon" id="status-icon" aria-hidden="true"></div>
+        <p class="status-label">STATUS</p>
+        <p class="status-message" id="status-message">MENUNGGU DATA...</p>
+        <p class="status-raw" id="status-raw">—</p>
+      </div>
+    </section>
+
+    <!-- Sensor Panels -->
+    <section class="sensor-section" aria-labelledby="sensor-heading">
+      <h2 id="sensor-heading" class="section-title">
+        <span class="section-title-line"></span>
+        PANEL SENSOR
+        <span class="section-title-line"></span>
+      </h2>
+      <div class="sensor-grid">
+        <article class="sensor-panel glass-card" id="sensor-kiri" data-direction="kiri">
+          <div class="sensor-panel-glow"></div>
+          <div class="sensor-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </div>
+          <h3 class="sensor-name">Sensor Kiri</h3>
+          <p class="sensor-state" id="sensor-kiri-state">AMAN</p>
+        </article>
+
+        <article class="sensor-panel glass-card" id="sensor-tengah" data-direction="depan">
+          <div class="sensor-panel-glow"></div>
+          <div class="sensor-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19V5M5 12l7-7 7 7"/>
+            </svg>
+          </div>
+          <h3 class="sensor-name">Sensor Tengah</h3>
+          <p class="sensor-state" id="sensor-tengah-state">AMAN</p>
+        </article>
+
+        <article class="sensor-panel glass-card" id="sensor-kanan" data-direction="kanan">
+          <div class="sensor-panel-glow"></div>
+          <div class="sensor-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 18l6-6-6-6"/>
+            </svg>
+          </div>
+          <h3 class="sensor-name">Sensor Kanan</h3>
+          <p class="sensor-state" id="sensor-kanan-state">AMAN</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Audio Control -->
+    <section class="audio-section glass-card" aria-labelledby="audio-heading">
+      <h2 id="audio-heading" class="section-title section-title--sm">
+        <span class="section-title-line"></span>
+        AUDIO CONTROL
+        <span class="section-title-line"></span>
+      </h2>
+      <div class="audio-controls">
+        <button type="button" id="btn-mute" class="btn btn--primary" aria-pressed="false">
+          <span class="btn-icon" id="mute-icon" aria-hidden="true">🔊</span>
+          <span id="mute-label">MUTE SUARA</span>
+        </button>
+        <button type="button" id="btn-test" class="btn btn--secondary">
+          <span class="btn-icon" aria-hidden="true">🎙</span>
+          TEST SUARA
+        </button>
+      </div>
+      <p class="audio-hint">Suara otomatis saat status berubah · Bahasa Indonesia</p>
+    </section>
+
+    <footer class="footer">
+      <p>Realtime Firebase · SmartBlind v1.0</p>
+    </footer>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
