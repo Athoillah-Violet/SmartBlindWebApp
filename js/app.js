@@ -1,62 +1,47 @@
 /**
  * SmartBlind App — Entry point
- * MQTT realtime + Web Speech API
+ * MQTT dinamis per device + Web Speech API
  */
 
 import { normalizeStatus } from "./helpers.js";
-import { applyStatus, hideLoading, setConnection, showInvalidPayload, showWaiting, els, updateMuteButton } from "./ui.js";
-import { initSpeech, speakOnStatusChange, speakTest, toggleMute } from "./speech.js";
-import { initMqtt } from "./mqtt.js";
+import * as ui from "./uiController.js";
+import {
+  initSpeech,
+  speakOnStatusChange,
+  speakTest,
+  toggleMute,
+} from "./speechController.js";
+import { initConnectionManager } from "./connectionManager.js";
 
 let hasReceivedMessage = false;
 
-function handleMqttPayload(raw) {
+function handleStatusPayload(raw) {
   const status = normalizeStatus(raw);
 
   if (!status) {
-    showInvalidPayload(raw);
+    ui.showInvalidPayload(raw);
     return;
   }
 
   hasReceivedMessage = true;
   speakOnStatusChange(status);
-  applyStatus(status);
+  ui.applyStatus(status);
 }
 
-function handleConnection(connected) {
-  setConnection(connected);
-  if (connected) hideLoading();
-  else if (!hasReceivedMessage) showWaiting();
-}
-
-function bindControls() {
-  els.btnMute?.addEventListener("click", () => {
-    const muted = toggleMute();
-    updateMuteButton(muted);
-  });
-
-  els.btnTest?.addEventListener("click", () => {
-    speakTest("Tes suara Smart Blind App berhasil");
-  });
-
-  document.addEventListener(
-    "click",
-    () => initSpeech(),
-    { once: true }
+function bindAudioControls() {
+  ui.bindAudioControls(
+    () => ui.updateMuteButton(toggleMute()),
+    () => speakTest("Tes suara Smart Blind App berhasil")
   );
+
+  document.addEventListener("click", () => initSpeech(), { once: true });
 }
 
 function init() {
   initSpeech();
-  bindControls();
-  setConnection(false);
-
-  initMqtt({
-    onMessage: handleMqttPayload,
-    onConnectionChange: handleConnection,
-  });
-
-  setTimeout(hideLoading, 4000);
+  bindAudioControls();
+  ui.hideLoading();
+  initConnectionManager(handleStatusPayload);
 }
 
 init();

@@ -1,85 +1,76 @@
 # SmartBlind App
 
-Web app navigasi realtime untuk tunanetra. Data sensor dari **ESP32** diterima via **MQTT WebSocket** — tanpa polling, latency minimal.
+Web app navigasi realtime untuk tunanetra. ESP32 publish status via **MQTT** — web app subscribe per **Device ID**.
 
 ## Arsitektur
 
 ```
-ESP32 + Ultrasonic
-       ↓ publish
-HiveMQ Broker (wss://broker.hivemq.com:8884/mqtt)
-       ↓ subscribe smartblind/status
-Web App (HP)
-       ↓
-UI update + suara (Web Speech API)
+ESP32 → MQTT publish smartblind/{DEVICE_ID}/status
+              ↓
+        Web App (subscribe)
+              ↓
+        UI + suara (Web Speech API)
 ```
+
+## Connect Device
+
+1. Buka web app → halaman **Connect Smart Blind**
+2. Masukkan ID perangkat (contoh: `SB-001`)
+3. Klik **Hubungkan Perangkat**
+4. Berhasil → **PERANGKAT TERHUBUNG** → dashboard aktif
+5. Gagal → **ID SMART BLIND TIDAK VALID**
+
+ID tersimpan di `localStorage` — buka ulang otomatis reconnect.
 
 ## MQTT
 
 | Setting | Nilai |
 |---------|--------|
 | Broker | `wss://broker.hivemq.com:8884/mqtt` |
-| Topic subscribe | `smartblind/status` |
-| Payload | `kiri` · `kanan` · `depan` · `aman` |
+| Topic | `smartblind/{DEVICE_ID}/status` |
+| Contoh | `smartblind/SB-001/status` |
 
-### Contoh publish dari ESP32 (Arduino)
+### ESP32 (Arduino)
 
 ```cpp
-client.publish("smartblind/status", "depan");
+// Ganti SB-001 dengan ID perangkat Anda
+client.publish("smartblind/SB-001/status", "depan");
 ```
 
 ## Status & Suara
 
-| Payload | Tampilan | Suara |
-|---------|----------|-------|
-| `kiri` | AWAS KIRI ADA HALANGAN | Awas kiri ada halangan |
-| `kanan` | AWAS KANAN ADA HALANGAN | Awas kanan ada halangan |
-| `depan` | AWAS DI DEPAN ADA HALANGAN | Awas di depan ada halangan |
-| `aman` | JALAN AMAN | Jalan aman |
+| Payload | Suara |
+|---------|--------|
+| `kiri` | Awas kiri ada halangan |
+| `kanan` | Awas kanan ada halangan |
+| `depan` | Awas di depan ada halangan |
+| `kiri_depan` | Awas kiri dan depan ada halangan |
+| `kanan_depan` | Awas depan dan kanan ada halangan |
+| `kiri_kanan` | Awas kiri dan kanan ada halangan |
+| `bahaya_total` | Awas banyak halangan di sekitar |
+| `aman` | Jalan aman |
 
-**Anti-spam:** suara hanya keluar saat status **berubah** (`lastSpokenStatus`). Status sama berulang tidak dibaca ulang.
-
-**Prioritas kecepatan:** `speechSynthesis.cancel()` sebelum `speak()` baru agar notifikasi terbaru langsung didengar.
+Anti-spam: suara hanya saat status **berubah**.
 
 ## Struktur Kode
 
 ```
-SmartBlindApp/
-├── index.html
-├── style.css
-└── js/
-    ├── config.js    # MQTT & status config
-    ├── helpers.js   # normalize payload
-    ├── ui.js        # DOM update
-    ├── speech.js    # Web Speech API
-    ├── mqtt.js      # MQTT connect & subscribe
-    └── app.js       # Entry point
+js/
+├── config.js              # Broker, topic builder, status
+├── helpers.js             # Normalisasi ID & payload
+├── mqttService.js         # MQTT connect / subscribe / disconnect
+├── speechController.js    # Web Speech API
+├── uiController.js        # DOM & tampilan
+├── connectionManager.js   # Flow device + localStorage
+└── app.js                 # Entry point
 ```
 
-## Menjalankan Lokal
+## Deploy
+
+Static hosting: GitHub Pages, Netlify, Vercel — folder root.
 
 ```bash
 npx serve .
 ```
 
-Buka `http://localhost:3000` — **wajib HTTP/HTTPS**, bukan `file://`.
-
-Di HP Android: gunakan IP komputer yang sama jaringan WiFi.
-
-## Deploy
-
-- **GitHub Pages** / **Netlify** / **Vercel** — upload folder root (static)
-- Tidak perlu backend
-
-## Library
-
-- [MQTT.js](https://unpkg.com/mqtt/dist/mqtt.min.js) via CDN
-- Web Speech API (built-in browser)
-
-## Catatan ESP32
-
-Pastikan ESP32 publish ke topic **`smartblind/status`** pada broker yang sama (HiveMQ public atau broker Anda sendiri — jika ganti broker, edit `js/config.js`).
-
-## Lisensi
-
-Proyek edukasi — bebas dimodifikasi.
+Wajib `http://` atau `https://`, bukan `file://`.

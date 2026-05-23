@@ -12,14 +12,42 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="loading-overlay" class="loading" aria-live="polite">
+  <div id="loading-overlay" class="loading hidden" aria-live="polite">
     <div class="loading__inner">
       <div class="loading__dots" aria-hidden="true"><span></span><span></span><span></span></div>
-      <p class="loading__text">Menghubungkan MQTT...</p>
+      <p class="loading__text">Menghubungkan...</p>
     </div>
   </div>
 
-  <div class="app">
+  <!-- Connect Device Screen -->
+  <section id="connect-screen" class="connect-screen" aria-labelledby="connect-title">
+    <div class="connect-card glass">
+      <div class="connect-card__logo" aria-hidden="true">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12 26 L20 12 L28 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="20" cy="27" r="2.5" fill="currentColor"/>
+        </svg>
+      </div>
+      <h2 id="connect-title" class="connect-card__title">Connect Smart Blind</h2>
+      <p class="connect-card__subtitle">Masukkan ID perangkat Smart Blind Anda untuk mulai terhubung.</p>
+      <label class="sr-only" for="device-id-input">ID Perangkat</label>
+      <input
+        type="text"
+        id="device-id-input"
+        class="connect-input"
+        placeholder="Contoh: SB-001, SMART-ALMA-01"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+      />
+      <p id="connect-feedback" class="connect-feedback" role="status" aria-live="polite"></p>
+      <button type="button" id="btn-connect-device" class="btn btn--dark btn--full">Hubungkan Perangkat</button>
+    </div>
+  </section>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="app hidden">
     <header class="masthead glass">
       <div class="masthead__brand">
         <div class="masthead__logo" aria-hidden="true">
@@ -32,14 +60,19 @@
         <div class="masthead__titles">
           <p class="masthead__kicker">Smart Blind System</p>
           <h1 class="masthead__title">Smart Blind App</h1>
-          <p class="masthead__subtitle">Realtime MQTT · AI Navigation</p>
+          <p class="masthead__subtitle">Device · <span id="device-label">—</span></p>
         </div>
       </div>
       <div class="masthead__status disconnected" id="connection-badge" title="Status MQTT">
         <span class="masthead__dot"></span>
-        <span class="masthead__connection-label">Offline</span>
+        <span class="masthead__connection-label">Disconnected</span>
       </div>
     </header>
+
+    <div class="device-actions">
+      <button type="button" id="btn-change-device" class="btn btn--outline btn--sm">Ganti Device</button>
+      <button type="button" id="btn-disconnect" class="btn btn--outline btn--sm btn--danger-text">Putuskan Koneksi</button>
+    </div>
 
     <section class="hero" aria-labelledby="status-heading">
       <h2 id="status-heading" class="sr-only">Status Navigasi</h2>
@@ -94,7 +127,7 @@
     </section>
 
     <footer class="footer">
-      <p>MQTT · smartblind/status · HiveMQ</p>
+      <p id="footer-topic">MQTT · smartblind/—/status</p>
     </footer>
   </div>
 

@@ -18,6 +18,8 @@
   --offline: #DC2626;
   --radius: 16px;
   --shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+  --border: #E2E8F0;
+  --radius-sm: 10px;
   --font: "Inter", system-ui, sans-serif;
 }
 
@@ -157,6 +159,136 @@ body {
 
 .masthead__status.disconnected .masthead__connection-label {
   color: var(--offline);
+}
+
+.masthead__status.connecting .masthead__dot {
+  background: var(--accent);
+  animation: dot 0.9s ease-in-out infinite;
+}
+
+.masthead__status.connecting .masthead__connection-label {
+  color: var(--accent);
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* Connect screen */
+.connect-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: linear-gradient(165deg, #FFFFFF 0%, var(--bg) 45%, var(--bg-soft) 100%);
+  animation: fadeIn 0.4s ease both;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.connect-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+
+.connect-card__logo {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1rem;
+  color: var(--accent);
+}
+
+.connect-card__logo svg {
+  width: 100%;
+  height: 100%;
+}
+
+.connect-card__title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.connect-card__subtitle {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.25rem;
+}
+
+.connect-input {
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-family: var(--font);
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--border, #E2E8F0);
+  border-radius: var(--radius-sm, 10px);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  margin-bottom: 0.75rem;
+}
+
+.connect-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.connect-input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 0;
+}
+
+.connect-feedback {
+  min-height: 1.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  transition: color 0.2s;
+}
+
+.connect-feedback--success {
+  color: var(--online);
+}
+
+.connect-feedback--error {
+  color: var(--danger);
+}
+
+.btn--full {
+  width: 100%;
+}
+
+.btn--sm {
+  flex: 1;
+  padding: 0.6rem 0.5rem;
+  font-size: 0.72rem;
+}
+
+.btn--danger-text {
+  color: var(--danger);
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+.device-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: -0.25rem;
 }
 
 /* Hero status card */

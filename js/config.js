@@ -1,7 +1,19 @@
 /** Konstanta MQTT & definisi status */
 
 export const MQTT_BROKER = "wss://broker.hivemq.com:8884/mqtt";
-export const MQTT_TOPIC = "smartblind/status";
+export const TOPIC_PREFIX = "smartblind";
+export const STORAGE_KEY = "smartblind_device_id";
+
+export const BADGE = {
+  CONNECTING: "Connecting...",
+  CONNECTED: "Connected",
+  DISCONNECTED: "Disconnected",
+};
+
+/** Topic: smartblind/{DEVICE_ID}/status */
+export function buildTopic(deviceId) {
+  return `${TOPIC_PREFIX}/${deviceId}/status`;
+}
 
 export const STATUS = {
   kiri_depan: {
@@ -10,21 +22,18 @@ export const STATUS = {
     type: "danger",
     icon: "left",
   },
-
   kanan_depan: {
     message: "AWAS DEPAN DAN KANAN ADA HALANGAN",
     speech: "Awas depan dan kanan ada halangan",
     type: "danger",
     icon: "right",
   },
-
   kiri_kanan: {
     message: "AWAS KIRI DAN KANAN ADA HALANGAN",
     speech: "Awas kiri dan kanan ada halangan",
     type: "danger",
     icon: "front",
   },
-
   bahaya_total: {
     message: "AWAS BANYAK HALANGAN DI SEKITAR",
     speech: "Awas banyak halangan di sekitar",
