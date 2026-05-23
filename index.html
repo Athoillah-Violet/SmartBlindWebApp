@@ -3,67 +3,47 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#F5F1E8" />
-  <meta name="description" content="SmartBlind App - AI Smart Navigation For Blind People" />
+  <meta name="theme-color" content="#F8FAFC" />
+  <meta name="description" content="SmartBlind App - Realtime MQTT Navigation For Blind People" />
   <title>SmartBlind App</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Cinematic atmosphere -->
-  <div class="atmosphere" aria-hidden="true">
-    <div class="atmosphere__vignette"></div>
-    <div class="atmosphere__grain"></div>
-    <div class="atmosphere__frame atmosphere__frame--top"></div>
-    <div class="atmosphere__frame atmosphere__frame--bottom"></div>
-  </div>
-
-  <!-- Loading -->
   <div id="loading-overlay" class="loading" aria-live="polite">
     <div class="loading__inner">
-      <div class="loading__reel" aria-hidden="true">
-        <span></span><span></span><span></span><span></span><span></span>
-      </div>
-      <p class="loading__text">Menghubungkan ke Firebase</p>
-      <div class="loading__line"><span class="loading__line-fill"></span></div>
+      <div class="loading__dots" aria-hidden="true"><span></span><span></span><span></span></div>
+      <p class="loading__text">Menghubungkan MQTT...</p>
     </div>
   </div>
 
   <div class="app">
-    <!-- Masthead -->
-    <header class="masthead card">
+    <header class="masthead glass">
       <div class="masthead__brand">
         <div class="masthead__logo" aria-hidden="true">
           <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.25"/>
+            <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5"/>
             <path d="M12 26 L20 12 L28 26" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             <circle cx="20" cy="27" r="2.5" fill="currentColor"/>
           </svg>
         </div>
         <div class="masthead__titles">
-          <p class="masthead__kicker">Presented by SmartBlind</p>
+          <p class="masthead__kicker">Smart Blind System</p>
           <h1 class="masthead__title">Smart Blind App</h1>
-          <p class="masthead__subtitle">AI Smart Navigation For Blind People</p>
+          <p class="masthead__subtitle">Realtime MQTT · AI Navigation</p>
         </div>
       </div>
-      <div class="masthead__status" id="connection-badge" title="Status koneksi">
+      <div class="masthead__status disconnected" id="connection-badge" title="Status MQTT">
         <span class="masthead__dot"></span>
         <span class="masthead__connection-label">Offline</span>
       </div>
     </header>
 
-    <!-- Status — hero editorial -->
     <section class="hero" aria-labelledby="status-heading">
       <h2 id="status-heading" class="sr-only">Status Navigasi</h2>
-      <div id="status-card" class="hero__card card status-card--safe">
-        <div class="hero__meta">
-          <span class="hero__chapter">Scene I — Navigation</span>
-          <div class="hero__indicator" id="status-indicator" aria-hidden="true">
-            <span class="hero__indicator-dot"></span>
-          </div>
-        </div>
+      <div id="status-card" class="hero__card glass status-card--safe">
         <div class="hero__icon" id="status-icon" aria-hidden="true"></div>
         <p class="hero__label">Status</p>
         <p class="hero__message" id="status-message">Menunggu data...</p>
@@ -71,38 +51,26 @@
       </div>
     </section>
 
-    <!-- Sensors -->
     <section class="sensors" aria-labelledby="sensor-heading">
-      <header class="section-head">
-        <h2 id="sensor-heading" class="section-head__title">Panel Sensor</h2>
-        <p class="section-head__desc">Pemantauan arah kiri, tengah, dan kanan</p>
-      </header>
+      <h2 id="sensor-heading" class="section-title">Panel Sensor</h2>
       <div class="sensors__grid">
-        <article class="sensor card" id="sensor-kiri" data-direction="kiri">
+        <article class="sensor glass active-safe" id="sensor-kiri">
           <div class="sensor__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M15 18l-6-6 6-6"/>
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M15 18l-6-6 6-6"/></svg>
           </div>
           <h3 class="sensor__name">Kiri</h3>
           <p class="sensor__state" id="sensor-kiri-state">Aman</p>
         </article>
-
-        <article class="sensor card" id="sensor-tengah" data-direction="depan">
+        <article class="sensor glass active-safe" id="sensor-tengah">
           <div class="sensor__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M12 19V5M5 12l7-7 7 7"/>
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
           </div>
-          <h3 class="sensor__name">Tengah</h3>
+          <h3 class="sensor__name">Depan</h3>
           <p class="sensor__state" id="sensor-tengah-state">Aman</p>
         </article>
-
-        <article class="sensor card" id="sensor-kanan" data-direction="kanan">
+        <article class="sensor glass active-safe" id="sensor-kanan">
           <div class="sensor__icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M9 18l6-6-6-6"/>
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18l6-6-6-6"/></svg>
           </div>
           <h3 class="sensor__name">Kanan</h3>
           <p class="sensor__state" id="sensor-kanan-state">Aman</p>
@@ -110,11 +78,8 @@
       </div>
     </section>
 
-    <!-- Audio -->
-    <section class="audio card" aria-labelledby="audio-heading">
-      <header class="section-head section-head--compact">
-        <h2 id="audio-heading" class="section-head__title">Audio Control</h2>
-      </header>
+    <section class="audio glass" aria-labelledby="audio-heading">
+      <h2 id="audio-heading" class="section-title">Audio Control</h2>
       <div class="audio__actions">
         <button type="button" id="btn-mute" class="btn btn--dark" aria-pressed="false">
           <svg class="btn__icon" id="mute-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -123,23 +88,17 @@
           </svg>
           <span id="mute-label">Mute Suara</span>
         </button>
-        <button type="button" id="btn-test" class="btn btn--outline">
-          <svg class="btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-            <path d="M12 2a3 3 0 00-3 3v7a3 3 0 006 0V5a3 3 0 00-3-3z"/>
-            <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v3"/>
-          </svg>
-          Test Suara
-        </button>
+        <button type="button" id="btn-test" class="btn btn--outline">Test Suara</button>
       </div>
-      <p class="audio__hint">Suara otomatis saat status berubah · Bahasa Indonesia</p>
+      <p class="audio__hint">Suara langsung saat status berubah · Tanpa polling</p>
     </section>
 
     <footer class="footer">
-      <p class="footer__line">Realtime Firebase</p>
-      <p class="footer__credit">SmartBlind · Est. 2026</p>
+      <p>MQTT · smartblind/status · HiveMQ</p>
     </footer>
   </div>
 
-  <script type="module" src="script.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

@@ -1,117 +1,85 @@
 # SmartBlind App
 
-Web app navigasi pintar untuk tunanetra dengan tema **cyberpunk anime futuristic**. Terhubung realtime ke Firebase Realtime Database dan memberikan umpan suara otomatis via Web Speech API.
+Web app navigasi realtime untuk tunanetra. Data sensor dari **ESP32** diterima via **MQTT WebSocket** — tanpa polling, latency minimal.
 
-![SmartBlind](https://img.shields.io/badge/Realtime-Firebase-FFCA28?style=flat-square)
-![Deploy](https://img.shields.io/badge/Deploy-Vercel%20%7C%20Netlify-00F0FF?style=flat-square)
+## Arsitektur
 
-## Fitur
+```
+ESP32 + Ultrasonic
+       ↓ publish
+HiveMQ Broker (wss://broker.hivemq.com:8884/mqtt)
+       ↓ subscribe smartblind/status
+Web App (HP)
+       ↓
+UI update + suara (Web Speech API)
+```
 
-- **Status realtime** dari path `status` di Firebase
-- **Suara otomatis** (Bahasa Indonesia) saat status berubah
-- **Indikator visual** merah (bahaya) / hijau (aman) dengan animasi pulse
-- **3 panel sensor**: Kiri, Tengah, Kanan
-- **Kontrol audio**: mute/unmute & test suara
-- **Loading screen** saat menghubungkan Firebase
-- **Mobile friendly** untuk Android
+## MQTT
 
-## Status Database
+| Setting | Nilai |
+|---------|--------|
+| Broker | `wss://broker.hivemq.com:8884/mqtt` |
+| Topic subscribe | `smartblind/status` |
+| Payload | `kiri` · `kanan` · `depan` · `aman` |
 
-| Nilai Firebase | Tampilan UI | Suara |
-|----------------|-------------|-------|
+### Contoh publish dari ESP32 (Arduino)
+
+```cpp
+client.publish("smartblind/status", "depan");
+```
+
+## Status & Suara
+
+| Payload | Tampilan | Suara |
+|---------|----------|-------|
 | `kiri` | AWAS KIRI ADA HALANGAN | Awas kiri ada halangan |
 | `kanan` | AWAS KANAN ADA HALANGAN | Awas kanan ada halangan |
 | `depan` | AWAS DI DEPAN ADA HALANGAN | Awas di depan ada halangan |
 | `aman` | JALAN AMAN | Jalan aman |
 
-## Firebase
+**Anti-spam:** suara hanya keluar saat status **berubah** (`lastSpokenStatus`). Status sama berulang tidak dibaca ulang.
 
-**Database URL:**
+**Prioritas kecepatan:** `speechSynthesis.cancel()` sebelum `speak()` baru agar notifikasi terbaru langsung didengar.
+
+## Struktur Kode
+
 ```
-https://smartblindapp-e99f9-default-rtdb.asia-southeast1.firebasedatabase.app/
+SmartBlindApp/
+├── index.html
+├── style.css
+└── js/
+    ├── config.js    # MQTT & status config
+    ├── helpers.js   # normalize payload
+    ├── ui.js        # DOM update
+    ├── speech.js    # Web Speech API
+    ├── mqtt.js      # MQTT connect & subscribe
+    └── app.js       # Entry point
 ```
-
-**Path:** `status`
-
-### Aturan Firebase (Realtime Database Rules)
-
-Pastikan rules mengizinkan **read** untuk aplikasi web:
-
-```json
-{
-  "rules": {
-    "status": {
-      ".read": true,
-      ".write": false
-    }
-  }
-}
-```
-
-> Untuk produksi, batasi `.read` dengan autentikasi jika diperlukan.
-
-### Konfigurasi API Key (opsional)
-
-Jika koneksi Firebase SDK gagal, buka [Firebase Console](https://console.firebase.google.com/) → Project **smartblindapp-e99f9** → Project settings → Web app → salin `apiKey` dan ganti di `script.js` pada `firebaseConfig.apiKey`.
-
-Aplikasi juga memiliki **REST fallback** otomatis jika SDK tidak tersedia.
 
 ## Menjalankan Lokal
 
-### Opsi 1: Live Server (VS Code)
-1. Install extension **Live Server**
-2. Klik kanan `index.html` → **Open with Live Server**
-
-### Opsi 2: Python
-```bash
-cd SmartBlindApp
-python -m http.server 8080
-```
-Buka `http://localhost:8080`
-
-### Opsi 3: Node (npx)
 ```bash
 npx serve .
 ```
 
-> **Penting:** Buka via `http://` (bukan `file://`) agar Firebase dan Speech API berfungsi.
+Buka `http://localhost:3000` — **wajib HTTP/HTTPS**, bukan `file://`.
 
-## Deploy Gratis
+Di HP Android: gunakan IP komputer yang sama jaringan WiFi.
 
-### Vercel
-1. Push project ke GitHub
-2. Import repo di [vercel.com](https://vercel.com)
-3. Framework: **Other** (static)
-4. Deploy
+## Deploy
 
-### Netlify
-1. Push ke GitHub
-2. Import di [netlify.com](https://netlify.com)
-3. Publish directory: `/` (root)
-4. Deploy
+- **GitHub Pages** / **Netlify** / **Vercel** — upload folder root (static)
+- Tidak perlu backend
 
-File `vercel.json` dan `netlify.toml` sudah disertakan.
+## Library
 
-## Struktur Project
+- [MQTT.js](https://unpkg.com/mqtt/dist/mqtt.min.js) via CDN
+- Web Speech API (built-in browser)
 
-```
-SmartBlindApp/
-├── index.html      # Halaman utama
-├── style.css       # Tema cyberpunk + glassmorphism
-├── script.js       # Firebase + Speech + UI logic
-├── vercel.json     # Config deploy Vercel
-├── netlify.toml    # Config deploy Netlify
-├── .gitignore
-└── README.md
-```
+## Catatan ESP32
 
-## Teknologi
-
-- HTML5, CSS3, JavaScript (ES Modules)
-- Firebase Realtime Database SDK v11
-- Web Speech API (`SpeechSynthesisUtterance`)
-- Google Fonts: Orbitron, Rajdhani
+Pastikan ESP32 publish ke topic **`smartblind/status`** pada broker yang sama (HiveMQ public atau broker Anda sendiri — jika ganti broker, edit `js/config.js`).
 
 ## Lisensi
 
-Project edukasi — bebas digunakan dan dimodifikasi.
+Proyek edukasi — bebas dimodifikasi.
