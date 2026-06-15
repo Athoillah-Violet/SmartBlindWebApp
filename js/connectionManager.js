@@ -85,8 +85,8 @@ export function initConnectionManager(statusHandler) {
   // Bind event tombol modal konfirmasi
   ui.bindModalActions(confirmResetWifi, cancelResetWifi);
 
-  // Bind event tombol modal monitoring GPS
-  ui.bindMonitoringActions(handleOpenMonitoring, handleCloseMonitoring, handleCopyCode);
+  // Bind event tombol modal izin lokasi wajib
+  ui.bindLocationPermissionActions(handleActivateLocation, handleLaterLocation);
 
   // Periksa apakah ada deviceId yang sebelumnya tersimpan di localStorage
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -297,8 +297,8 @@ async function connectToDevice(rawId, isAuto = false) {
     // Mulai/jalankan timer keepalive pertama kali
     resetDeviceKeepalive();
 
-    // Aktifkan pemantauan & pengiriman lokasi GPS otomatis ke MQTT
-    startGpsTracking(deviceId);
+    // Periksa GPS/lokasi perangkat untuk izin monitoring wajib aktif
+    checkLocationPermissionAndStart(deviceId);
 
     // Pastikan tersimpan di localStorage
     localStorage.setItem(STORAGE_KEY, deviceId);
@@ -415,8 +415,95 @@ export function getSavedDeviceId() {
 
 // ====== LOGIKA GPS GEOLOCATION & TRACKING ======
 
+let pendingGpsDeviceId = null;
+let lastSentLat = null;
+let lastSentLng = null;
+
+// Memeriksa izin lokasi browser dan menampilkan modal konfirmasi jika diperlukan
+function checkLocationPermissionAndStart(deviceId) {
+  pendingGpsDeviceId = deviceId;
+
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: "geolocation" }).then((result) => {
+      if (result.state === "granted") {
+        // Jika sudah diizinkan, langsung aktifkan Geolocation
+        startGpsTracking(deviceId);
+      } else if (result.state === "prompt") {
+        // Jika belum ditanyakan, tampilkan modal popup konfirmasi
+        ui.showLocationPermissionModal(true);
+      } else {
+        // Jika diblokir/denied, nonaktifkan monitoring lokasi
+        console.warn("Akses lokasi diblokir oleh pengguna di pengaturan browser.");
+        stopGpsTracking();
+      }
+    });
+  } else {
+    // Fallback: Tampilkan modal popup konfirmasi
+    ui.showLocationPermissionModal(true);
+  }
+}
+
+// Handler saat pengguna menyetujui akses lokasi di modal
+function handleActivateLocation() {
+  ui.showLocationPermissionModal(false);
+  if (pendingGpsDeviceId) {
+    // Minta posisi sekali untuk memicu prompt browser
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        // Sukses: Mulai pelacakan realtime
+        startGpsTracking(pendingGpsDeviceId);
+      },
+      (err) => {
+        console.warn("Akses lokasi ditolak setelah prompt browser:", err);
+        stopGpsTracking();
+      },
+      { enableHighAccuracy: true }
+    );
+  }
+}
+
+// Handler saat pengguna memilih "Nanti Saja" di modal
+function handleLaterLocation() {
+  ui.showLocationPermissionModal(false);
+  stopGpsTracking();
+}
+
 /**
- * Memulai pemantauan lokasi GPS browser menggunakan Geolocation API
+ * Menghitung jarak antar koordinat dalam meter menggunakan formula Haversine
+ */
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Radius Bumi dalam meter
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Jarak dalam meter
+}
+
+/**
+ * Mempublikasikan data lokasi GPS ke topic MQTT
+ */
+function publishGpsLocation(deviceId, lat, lng, accuracy, timestamp) {
+  const topic = `smartblind/${deviceId}/location`;
+  const payload = {
+    latitude: lat,
+    longitude: lng,
+    accuracy: Math.round(accuracy),
+    timestamp: timestamp,
+    deviceId: deviceId,
+  };
+  mqttService.publishLocation(topic, payload);
+  lastSentLat = lat;
+  lastSentLng = lng;
+}
+
+/**
+ * Memulai pemantauan lokasi GPS browser secara periodik dan hemat baterai
  * @param {string} deviceId - ID perangkat aktif
  */
 function startGpsTracking(deviceId) {
@@ -425,34 +512,58 @@ function startGpsTracking(deviceId) {
     return;
   }
 
-  // Bersihkan tracking GPS sebelumnya jika ada
   stopGpsTracking();
 
-  // Minta izin lokasi dan rekam posisi secara realtime
   gpsWatchId = navigator.geolocation.watchPosition(
     (position) => {
-      lastGpsData = {
-        deviceId: deviceId,
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        timestamp: Math.floor(position.timestamp / 1000)
-      };
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      const accuracy = position.coords.accuracy;
+      const timestamp = Math.floor(position.timestamp / 1000);
+
+      lastGpsData = { lat, lng, accuracy, timestamp };
+
+      // Cek apakah ada pergeseran lebih dari 10 meter dari posisi terakhir
+      if (lastSentLat !== null && lastSentLng !== null) {
+        const distance = calculateDistance(lastSentLat, lastSentLng, lat, lng);
+        if (distance > 10) {
+          // Kirim lokasi secara instan karena pengguna bergerak > 10m
+          publishGpsLocation(deviceId, lat, lng, accuracy, timestamp);
+          // Sinkronisasikan ulang timer interval
+          resetGpsInterval(deviceId);
+        }
+      } else {
+        // Kirim pertama kali
+        publishGpsLocation(deviceId, lat, lng, accuracy, timestamp);
+      }
     },
     (err) => {
-      console.warn("Akses izin lokasi browser gagal/ditolak:", err);
+      console.warn("Gagal mendapatkan koordinat GPS:", err);
     },
     {
       enableHighAccuracy: true,
       maximumAge: 0,
-      timeout: 10000
+      timeout: 10000,
     }
   );
 
-  // Jadwalkan pengiriman koordinat GPS secara berkala setiap 5 detik ke MQTT
+  resetGpsInterval(deviceId);
+}
+
+// Reset dan jadwalkan interval pengiriman lokasi 5 detik
+function resetGpsInterval(deviceId) {
+  if (gpsPublishInterval) {
+    clearInterval(gpsPublishInterval);
+  }
   gpsPublishInterval = setInterval(() => {
-    if (lastGpsData && mqttService.getActiveDeviceId() === deviceId) {
-      const topic = `smartblind/${deviceId}/location`;
-      mqttService.publishLocation(topic, lastGpsData);
+    if (lastGpsData) {
+      publishGpsLocation(
+        deviceId,
+        lastGpsData.lat,
+        lastGpsData.lng,
+        lastGpsData.accuracy,
+        lastGpsData.timestamp
+      );
     }
   }, 5000);
 }
@@ -470,31 +581,7 @@ function stopGpsTracking() {
     gpsPublishInterval = null;
   }
   lastGpsData = null;
-}
-
-// ====== LOGIKA MODAL MONITORING GPS ======
-
-function handleOpenMonitoring() {
-  const activeId = mqttService.getActiveDeviceId();
-  if (!activeId) return;
-  ui.showUserMonitoringModal(true, activeId);
-}
-
-function handleCloseMonitoring() {
-  ui.showUserMonitoringModal(false);
-}
-
-function handleCopyCode() {
-  const activeId = mqttService.getActiveDeviceId();
-  if (!activeId) return;
-
-  const cleanId = String(activeId).trim().toUpperCase();
-  const code = `SB-${cleanId.slice(-4)}`;
-
-  navigator.clipboard.writeText(code).then(() => {
-    ui.showToast("Kode Monitoring berhasil disalin!", "success");
-  }).catch((err) => {
-    console.error("Gagal menyalin kode ke clipboard:", err);
-    ui.showToast("Gagal menyalin kode.", "error");
-  });
+  lastSentLat = null;
+  lastSentLng = null;
+  pendingGpsDeviceId = null;
 }

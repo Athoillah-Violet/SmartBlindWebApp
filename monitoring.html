@@ -42,44 +42,40 @@
     }
     
     .monitoring-info-card__value {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       font-weight: 700;
       color: var(--text);
       margin-top: 0.2rem;
     }
+
+    .device-select-card {
+      padding: 1.25rem;
+      text-align: left;
+    }
+
+    .device-select-card select {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      font-family: var(--font);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .device-select-card select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
   </style>
 </head>
 <body>
-  <!-- Connect Monitoring Screen -->
-  <section id="connect-screen" class="connect-screen">
-    <div class="connect-card glass">
-      <div class="connect-card__logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-          <circle cx="12" cy="10" r="3"></circle>
-        </svg>
-      </div>
-      <h2 class="connect-card__title">Monitoring Smart Blind</h2>
-      <p class="connect-card__subtitle">Masukkan Kode Monitoring perangkat (misal: SB-1294) untuk mulai melacak lokasi dan memantau sensor.</p>
-      
-      <input
-        type="text"
-        id="monitoring-code-input"
-        class="connect-input"
-        placeholder="Contoh: SB-1294"
-        autocomplete="off"
-        autocapitalize="characters"
-        spellcheck="false"
-        style="margin-bottom: 1rem;"
-      />
-      
-      <button type="button" id="btn-connect-monitoring" class="btn btn--dark btn--full">Hubungkan</button>
-      <p id="connect-feedback" class="connect-feedback" style="margin-top: 1rem;"></p>
-    </div>
-  </section>
-
-  <!-- Monitoring Dashboard -->
-  <div id="dashboard" class="app hidden">
+  <!-- Monitoring Dashboard (Langsung Aktif Saat Dibuka) -->
+  <div id="dashboard" class="app">
     <header class="masthead glass">
       <div class="masthead__brand">
         <div class="masthead__logo" aria-hidden="true">
@@ -89,20 +85,23 @@
           </svg>
         </div>
         <div class="masthead__titles">
-          <p class="masthead__kicker">Smart Blind Monitoring</p>
-          <h1 class="masthead__title" id="device-name-display">Smart Blind Stick</h1>
-          <p class="masthead__subtitle">Kode · <span id="device-code-label">—</span></p>
+          <p class="masthead__kicker">Smart Blind System</p>
+          <h1 class="masthead__title">GPS Monitoring</h1>
         </div>
       </div>
-      <div class="masthead__status disconnected" id="connection-badge">
+      <div class="masthead__status disconnected" id="connection-badge" title="Status MQTT">
         <span class="masthead__dot"></span>
         <span class="masthead__connection-label">Disconnected</span>
       </div>
     </header>
 
-    <div class="device-actions">
-      <button type="button" id="btn-disconnect-monitoring" class="btn btn--outline btn--sm btn--danger-text">Putuskan Pemantauan</button>
-    </div>
+    <!-- Selektor Daftar Perangkat Online di Jaringan -->
+    <section class="device-select-card glass">
+      <label for="device-selector" class="monitoring-info-card__label" style="display: block; margin-bottom: 0.5rem; font-weight: 700;">Daftar Perangkat Tersedia</label>
+      <select id="device-selector">
+        <option value="">-- Mencari perangkat online... --</option>
+      </select>
+    </section>
 
     <!-- Peta Realtime Leaflet -->
     <section class="map-section glass" style="padding: 1.25rem;">
@@ -110,8 +109,12 @@
       <div id="map"></div>
     </section>
 
-    <!-- Info Detail Koordinat & Update -->
+    <!-- Card Informasi Lokasi (Reverse Geocoding) -->
     <section class="monitoring-info-grid">
+      <div class="monitoring-info-card glass" style="grid-column: span 2;">
+        <div class="monitoring-info-card__label">Lokasi Saat Ini (Alamat)</div>
+        <div class="monitoring-info-card__value" id="val-address" style="font-weight: 500; font-size: 0.8rem; line-height: 1.45;">Mencari alamat...</div>
+      </div>
       <div class="monitoring-info-card glass">
         <div class="monitoring-info-card__label">Latitude</div>
         <div class="monitoring-info-card__value" id="val-latitude">—</div>
@@ -120,18 +123,30 @@
         <div class="monitoring-info-card__label">Longitude</div>
         <div class="monitoring-info-card__value" id="val-longitude">—</div>
       </div>
-      <div class="monitoring-info-card glass" style="grid-column: span 2;">
-        <div class="monitoring-info-card__label">Update Terakhir</div>
+      <div class="monitoring-info-card glass">
+        <div class="monitoring-info-card__label">Akurasi</div>
+        <div class="monitoring-info-card__value" id="val-accuracy">—</div>
+      </div>
+      <div class="monitoring-info-card glass">
+        <div class="monitoring-info-card__label">Diperbarui</div>
         <div class="monitoring-info-card__value" id="val-timestamp">—</div>
       </div>
     </section>
 
-    <!-- Panel Status Sensor Realtime -->
+    <!-- Panel Status Perangkat & Status Navigasi -->
     <section class="hero" aria-labelledby="status-heading" style="margin-top: 0.5rem;">
-      <h2 id="status-heading" class="sr-only">Status Sensor</h2>
+      <h2 id="status-heading" class="sr-only">Status Perangkat</h2>
+      
+      <!-- Status Keaktifan Tongkat (Online/Offline) -->
+      <div class="monitoring-info-card glass" style="margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+        <span class="monitoring-info-card__label" style="margin: 0; font-weight: 700;">Status Tongkat</span>
+        <span id="val-device-status" class="device-status-badge offline" style="margin: 0; font-size: 0.7rem; padding: 0.25rem 0.6rem;">OFFLINE</span>
+      </div>
+
+      <!-- Status Navigasi Rintangan (Realtime MQTT) -->
       <div id="status-card" class="hero__card glass status-card--safe">
         <div class="hero__icon" id="status-icon" aria-hidden="true"></div>
-        <p class="hero__label">Status Sensor Perangkat</p>
+        <p class="hero__label">Status Navigasi</p>
         <p class="hero__message" id="status-message">Menunggu data...</p>
         <p class="hero__raw" id="status-raw">—</p>
       </div>

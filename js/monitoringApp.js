@@ -1,19 +1,25 @@
 /**
- * monitoringApp.js - Mengelola logika monitoring lokasi GPS & status sensor realtime
+ * monitoringApp.js - Logika halaman monitoring GPS realtime & status sensor pendamping
  */
 
 import { MQTT_BROKER, TOPIC_PREFIX } from "./config.js";
 import { normalizeStatus, getStatusConfig } from "./helpers.js";
 
-// ====== State Aplikasi ======
+// ====== State Pemantauan ======
 let client = null;
 let map = null;
 let marker = null;
 let activeDeviceId = null;
-let targetSuffix = null; // 4 Karakter terakhir dari Kode Monitoring yang dicari
-let isConnecting = false;
+let deviceKeepaliveTimer = null;
 
-// ====== Konstanta Ikon untuk Peta Leaflet ======
+// Track koordinat terakhir untuk optimasi reverse geocoding
+let lastGeocodedLat = null;
+let lastGeocodedLng = null;
+
+// Map perangkat online untuk selector: deviceId -> deviceData
+const onlineDevices = new Map();
+
+// ====== Konstanta Ikon Peta Leaflet ======
 const ICONS = {
   left: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/><circle cx="6" cy="12" r="2" fill="currentColor"/></svg>`,
   right: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/><circle cx="18" cy="12" r="2" fill="currentColor"/></svg>`,
@@ -23,18 +29,14 @@ const ICONS = {
 
 // ====== DOM Elements ======
 const els = {
-  connectScreen: document.getElementById("connect-screen"),
-  dashboard: document.getElementById("dashboard"),
-  codeInput: document.getElementById("monitoring-code-input"),
-  btnConnect: document.getElementById("btn-connect-monitoring"),
-  btnDisconnect: document.getElementById("btn-disconnect-monitoring"),
-  connectFeedback: document.getElementById("connect-feedback"),
-  deviceNameDisplay: document.getElementById("device-name-display"),
-  deviceCodeLabel: document.getElementById("device-code-label"),
   connectionBadge: document.getElementById("connection-badge"),
+  deviceSelector: document.getElementById("device-selector"),
+  valAddress: document.getElementById("val-address"),
   valLatitude: document.getElementById("val-latitude"),
   valLongitude: document.getElementById("val-longitude"),
+  valAccuracy: document.getElementById("val-accuracy"),
   valTimestamp: document.getElementById("val-timestamp"),
+  valDeviceStatus: document.getElementById("val-device-status"),
   statusCard: document.getElementById("status-card"),
   statusIcon: document.getElementById("status-icon"),
   statusMessage: document.getElementById("status-message"),
@@ -46,29 +48,70 @@ function initMap(lat, lng) {
   if (map) {
     map.remove();
   }
-  // Buat objek peta Leaflet dengan auto-center ke koordinat awal
   map = L.map("map").setView([lat, lng], 16);
 
-  // Load tile layer OpenStreetMap gratisan
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution: '© OpenStreetMap contributors',
   }).addTo(map);
 
-  // Buat marker untuk menandai lokasi pengguna
   marker = L.marker([lat, lng]).addTo(map);
 }
 
-// ====== Update Posisi Marker & Peta ======
+// ====== Peta Bergerak Mengikuti Posisi Terbaru ======
 function updateMapLocation(lat, lng) {
   if (!map) {
     initMap(lat, lng);
     return;
   }
-  
   const newLatLng = new L.LatLng(lat, lng);
   marker.setLatLng(newLatLng);
-  map.setView(newLatLng, 16); // Auto-center
+  map.setView(newLatLng, 16); // Auto center
+}
+
+// ====== Formula Haversine untuk Menghitung Jarak (Meter) ======
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+// ====== Reverse Geocoding via Nominatim OSM (Hemat Kuota/Baterai) ======
+async function reverseGeocode(lat, lng) {
+  // Hanya panggil API jika posisi bergeser lebih dari 15 meter dari pencarian terakhir
+  if (lastGeocodedLat !== null && lastGeocodedLng !== null) {
+    const distance = calculateDistance(lastGeocodedLat, lastGeocodedLng, lat, lng);
+    if (distance < 15) return;
+  }
+
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`,
+      {
+        headers: {
+          "Accept-Language": "id-ID,id;q=0.9,en;q=0.8",
+        },
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.display_name && els.valAddress) {
+        els.valAddress.textContent = data.display_name;
+        lastGeocodedLat = lat;
+        lastGeocodedLng = lng;
+      }
+    }
+  } catch (err) {
+    console.error("Gagal mendapatkan reverse geocode:", err);
+  }
 }
 
 // ====== Kelola Badge Koneksi MQTT ======
@@ -83,6 +126,26 @@ function setBadgeState(state) {
   if (state === "connecting") label.textContent = "Connecting...";
   else if (state === "connected") label.textContent = "Connected";
   else label.textContent = "Disconnected";
+}
+
+// ====== Kelola Status Keaktifan Tongkat (Online/Offline) ======
+function updateDeviceStatusBadge(status) {
+  const badge = els.valDeviceStatus;
+  if (!badge) return;
+
+  badge.className = `device-status-badge ${status}`;
+  badge.textContent = status.toUpperCase();
+}
+
+function resetKeepaliveTimer() {
+  if (deviceKeepaliveTimer) {
+    clearTimeout(deviceKeepaliveTimer);
+  }
+  updateDeviceStatusBadge("online");
+
+  deviceKeepaliveTimer = setTimeout(() => {
+    updateDeviceStatusBadge("offline");
+  }, 12000); // 12 detik tanpa data sensor/lokasi = Offline
 }
 
 // ====== Render UI Status Sensor ======
@@ -100,31 +163,107 @@ function applySensorStatus(statusKey) {
   if (els.statusRaw) els.statusRaw.textContent = statusKey.toUpperCase();
 }
 
-// ====== Sambungkan ke MQTT Broker ======
-function connectMonitoring(monitoringCode) {
-  if (isConnecting) return;
-  isConnecting = true;
+// ====== Update Dropdown Selector Perangkat Dinamis ======
+function updateSelectorUi() {
+  if (!els.deviceSelector) return;
 
-  // Bersihkan input kode: hapus "SB-" dan trim whitespace
-  const cleanCode = monitoringCode.trim().toUpperCase();
-  if (!cleanCode.startsWith("SB-") || cleanCode.length < 5) {
-    showFeedback("Kode Monitoring tidak valid. Format: SB-XXXX", "error");
-    isConnecting = false;
-    return;
+  // Simpan nilai pilihan saat ini agar tidak ter-reset
+  const currentValue = els.deviceSelector.value;
+
+  els.deviceSelector.innerHTML = "";
+
+  const defaultOpt = document.createElement("option");
+  defaultOpt.value = "";
+  defaultOpt.textContent =
+    onlineDevices.size === 0
+      ? "-- Mencari perangkat online... --"
+      : "-- Pilih Perangkat Smart Blind --";
+  els.deviceSelector.appendChild(defaultOpt);
+
+  onlineDevices.forEach((device) => {
+    const opt = document.createElement("option");
+    opt.value = device.id;
+    // Format Kode: SB-XXXX (4 karakter terakhir Device ID)
+    const code = `SB-${device.id.slice(-4)}`;
+    opt.textContent = `${device.name || "Smart Blind Stick"} (${code})`;
+    els.deviceSelector.appendChild(opt);
+  });
+
+  // Pulihkan nilai terpilih jika perangkatnya masih online
+  if (onlineDevices.has(currentValue)) {
+    els.deviceSelector.value = currentValue;
+  } else if (currentValue === activeDeviceId && activeDeviceId !== null) {
+    // Perangkat yang aktif terpilih offline/keluar dari list
+    disconnectActiveDevice();
+  }
+}
+
+// ====== Berlangganan / Pindah Monitoring Perangkat ======
+function subscribeToDevice(deviceId) {
+  disconnectActiveDevice();
+
+  activeDeviceId = deviceId;
+  updateDeviceStatusBadge("online");
+
+  // Subscribe ke status & lokasi perangkat baru
+  client.subscribe(`smartblind/${deviceId}/status`, { qos: 0 });
+  client.subscribe(`smartblind/${deviceId}/location`, { qos: 0 });
+
+  // Reset tampilan panel pemantau
+  if (els.valAddress) els.valAddress.textContent = "Mencari alamat...";
+  if (els.valLatitude) els.valLatitude.textContent = "—";
+  if (els.valLongitude) els.valLongitude.textContent = "—";
+  if (els.valAccuracy) els.valAccuracy.textContent = "—";
+  if (els.valTimestamp) els.valTimestamp.textContent = "—";
+
+  applySensorStatus("aman");
+  if (els.statusMessage) els.statusMessage.textContent = "Menunggu data sensor...";
+  if (els.statusRaw) els.statusRaw.textContent = "—";
+  
+  resetKeepaliveTimer();
+}
+
+// ====== Putuskan Pemantauan Perangkat Aktif ======
+function disconnectActiveDevice() {
+  if (activeDeviceId && client) {
+    client.unsubscribe(`smartblind/${activeDeviceId}/status`);
+    client.unsubscribe(`smartblind/${activeDeviceId}/location`);
   }
 
-  // Ambil 4 karakter terakhir sebagai suffix pencarian
-  targetSuffix = cleanCode.split("-")[1].trim();
-  if (!targetSuffix) {
-    showFeedback("Kode Monitoring tidak valid.", "error");
-    isConnecting = false;
-    return;
+  activeDeviceId = null;
+  lastGeocodedLat = null;
+  lastGeocodedLng = null;
+
+  if (deviceKeepaliveTimer) {
+    clearTimeout(deviceKeepaliveTimer);
+    deviceKeepaliveTimer = null;
   }
 
-  showFeedback("Menghubungkan ke broker...", "");
+  updateDeviceStatusBadge("offline");
+
+  // Reset peta
+  if (map) {
+    map.remove();
+    map = null;
+    marker = null;
+  }
+
+  // Reset UI Info
+  if (els.valAddress) els.valAddress.textContent = "Silakan pilih perangkat di atas.";
+  if (els.valLatitude) els.valLatitude.textContent = "—";
+  if (els.valLongitude) els.valLongitude.textContent = "—";
+  if (els.valAccuracy) els.valAccuracy.textContent = "—";
+  if (els.valTimestamp) els.valTimestamp.textContent = "—";
+
+  applySensorStatus("aman");
+  if (els.statusMessage) els.statusMessage.textContent = "Menunggu pilihan perangkat...";
+  if (els.statusRaw) els.statusRaw.textContent = "—";
+}
+
+// ====== Koneksi Awal Pemantauan ======
+function initMqtt() {
   setBadgeState("connecting");
 
-  // Inisialisasi MQTT Connection
   client = mqtt.connect(MQTT_BROKER, {
     clean: true,
     reconnectPeriod: 2000,
@@ -134,40 +273,32 @@ function connectMonitoring(monitoringCode) {
 
   client.on("connect", () => {
     setBadgeState("connected");
-    showFeedback("Mencari perangkat dengan kode " + cleanCode + "...", "");
-    
-    // Subscribe ke topic penemuan perangkat
+    // Berlangganan topic discovery untuk memantau perangkat yang online
     client.subscribe("smartblind/devices", { qos: 0 });
   });
 
   client.on("message", (topic, payload) => {
-    // 1. Logika Discovery Perangkat
-    if (topic === "smartblind/devices" && !activeDeviceId) {
+    // 1. Discovery Perangkat
+    if (topic === "smartblind/devices") {
       try {
         const device = JSON.parse(payload.toString());
-        // Periksa apakah ID perangkat berakhir dengan targetSuffix
-        if (device && device.id && device.id.toUpperCase().endsWith(targetSuffix)) {
-          // Perangkat ditemukan!
-          activeDeviceId = device.id;
-          
-          // Unsubscribe dari discovery topic
-          client.unsubscribe("smartblind/devices");
-
-          // Subscribe ke status & lokasi perangkat tersebut
-          client.subscribe(`smartblind/${activeDeviceId}/status`, { qos: 0 });
-          client.subscribe(`smartblind/${activeDeviceId}/location`, { qos: 0 });
-
-          // Ubah tampilan ke dashboard monitoring
-          showDashboard(device.name || "Smart Blind Stick", cleanCode);
+        if (device && device.id) {
+          if (device.status === "online") {
+            onlineDevices.set(device.id, device);
+          } else {
+            onlineDevices.delete(device.id);
+          }
+          updateSelectorUi();
         }
       } catch (err) {
-        console.warn("Gagal memproses registrasi perangkat:", err);
+        console.warn("Gagal parsing registrasi perangkat:", err);
       }
       return;
     }
 
-    // 2. Logika Payload Status Sensor
+    // 2. Data Status Sensor Realtime
     if (activeDeviceId && topic === `smartblind/${activeDeviceId}/status`) {
+      resetKeepaliveTimer();
       const statusKey = normalizeStatus(payload.toString());
       if (statusKey) {
         applySensorStatus(statusKey);
@@ -175,108 +306,62 @@ function connectMonitoring(monitoringCode) {
       return;
     }
 
-    // 3. Logika Payload GPS Lokasi
+    // 3. Data Lokasi GPS Realtime
     if (activeDeviceId && topic === `smartblind/${activeDeviceId}/location`) {
+      resetKeepaliveTimer();
       try {
         const loc = JSON.parse(payload.toString());
-        if (loc && loc.lat !== undefined && loc.lng !== undefined) {
-          // Update teks koordinat
-          if (els.valLatitude) els.valLatitude.textContent = Number(loc.lat).toFixed(6);
-          if (els.valLongitude) els.valLongitude.textContent = Number(loc.lng).toFixed(6);
+        if (loc && loc.latitude !== undefined && loc.longitude !== undefined) {
+          // Update teks koordinat & akurasi
+          if (els.valLatitude) els.valLatitude.textContent = Number(loc.latitude).toFixed(6);
+          if (els.valLongitude) els.valLongitude.textContent = Number(loc.longitude).toFixed(6);
+          if (els.valAccuracy) els.valAccuracy.textContent = `±${loc.accuracy || 0} Meter`;
           
-          // Update timestamp update terakhir
+          // Update timestamp
           if (els.valTimestamp) {
             const date = loc.timestamp ? new Date(loc.timestamp * 1000) : new Date();
-            els.valTimestamp.textContent = date.toLocaleTimeString("id-ID") + " · " + date.toLocaleDateString("id-ID");
+            els.valTimestamp.textContent = date.toLocaleTimeString("id-ID") + " WIB";
           }
 
           // Update Leaflet peta
-          updateMapLocation(loc.lat, loc.lng);
+          updateMapLocation(loc.latitude, loc.longitude);
+          
+          // Jalankan reverse geocoding alamat
+          reverseGeocode(loc.latitude, loc.longitude);
         }
       } catch (err) {
-        console.warn("Gagal memproses data lokasi:", err);
+        console.warn("Gagal parsing data lokasi:", err);
       }
     }
   });
 
-  client.on("reconnect", () => {
-    setBadgeState("connecting");
-  });
-
-  client.on("offline", () => {
-    setBadgeState("disconnected");
-  });
-
-  client.on("error", (err) => {
-    console.error("MQTT Error:", err);
-    showFeedback("Gagal terhubung ke server MQTT.", "error");
-    setBadgeState("disconnected");
-    isConnecting = false;
-  });
-}
-
-// ====== Tampilkan Feedback Koneksi ======
-function showFeedback(message, type = "") {
-  if (!els.connectFeedback) return;
-  els.connectFeedback.textContent = message;
-  els.connectFeedback.className = "connect-feedback";
-  if (type === "success") els.connectFeedback.classList.add("connect-feedback--success");
-  if (type === "error") els.connectFeedback.classList.add("connect-feedback--error");
-}
-
-// ====== Navigasi Tampilan Pemantauan ======
-function showDashboard(deviceName, code) {
-  els.connectScreen?.classList.add("hidden");
-  els.dashboard?.classList.remove("hidden");
-  
-  if (els.deviceNameDisplay) els.deviceNameDisplay.textContent = deviceName;
-  if (els.deviceCodeLabel) els.deviceCodeLabel.textContent = code;
-}
-
-function disconnectMonitoring() {
-  if (client) {
-    if (activeDeviceId) {
-      client.unsubscribe(`smartblind/${activeDeviceId}/status`);
-      client.unsubscribe(`smartblind/${activeDeviceId}/location`);
-    }
-    client.end(true);
-  }
-  
-  // Reset state
-  client = null;
-  activeDeviceId = null;
-  targetSuffix = null;
-  isConnecting = false;
-  
-  if (map) {
-    map.remove();
-    map = null;
-    marker = null;
-  }
-
-  // Tampilkan kembali screen awal
-  els.dashboard?.classList.add("hidden");
-  els.connectScreen?.classList.remove("hidden");
-  showFeedback("", "");
-  
-  if (els.codeInput) els.codeInput.value = "";
+  client.on("reconnect", () => setBadgeState("connecting"));
+  client.on("offline", () => setBadgeState("disconnected"));
+  client.on("close", () => setBadgeState("disconnected"));
 }
 
 // ====== Registrasi Event Listener ======
 function init() {
-  els.btnConnect?.addEventListener("click", () => {
-    if (els.codeInput) {
-      connectMonitoring(els.codeInput.value);
+  // Bind perubahan selektor perangkat
+  els.deviceSelector?.addEventListener("change", (e) => {
+    const selectedId = e.target.value;
+    if (selectedId) {
+      subscribeToDevice(selectedId);
+    } else {
+      disconnectActiveDevice();
     }
   });
 
-  els.codeInput?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      connectMonitoring(els.codeInput.value);
-    }
+  els.btnDisconnect?.addEventListener("click", () => {
+    if (els.deviceSelector) els.deviceSelector.value = "";
+    disconnectActiveDevice();
   });
 
-  els.btnDisconnect?.addEventListener("click", disconnectMonitoring);
+  // Hubungkan MQTT
+  initMqtt();
+  
+  // Set UI Awal
+  disconnectActiveDevice();
 }
 
 document.addEventListener("DOMContentLoaded", init);

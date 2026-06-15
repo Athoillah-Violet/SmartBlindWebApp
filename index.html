@@ -21,7 +21,14 @@
 
   <!-- Connect Device Screen -->
   <section id="connect-screen" class="connect-screen" aria-labelledby="connect-title">
-    <div class="connect-card glass">
+    <div class="connect-card glass" style="position: relative;">
+      <!-- Tombol Link ke Halaman Monitoring (Pojok Kanan Atas Card) -->
+      <a href="monitoring.html" id="btn-open-monitoring-page" class="btn-icon-only" title="Buka Halaman Monitoring" style="position: absolute; top: 12px; right: 12px; z-index: 10;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+      </a>
       <div class="connect-card__logo" aria-hidden="true">
         <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.5"/>
@@ -77,14 +84,6 @@
           <p class="masthead__subtitle">Device · <span id="device-label">—</span> · <span id="device-status-badge" class="device-status-badge offline">Offline</span></p>
         </div>
       </div>
-      
-      <!-- Tombol Menu Monitoring GPS Realtime di Pojok Kanan Atas -->
-      <button type="button" id="btn-open-monitoring-modal" class="btn-icon-only" title="Info Monitoring GPS" style="margin-left: auto; margin-right: 0.25rem;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-          <circle cx="12" cy="10" r="3"></circle>
-        </svg>
-      </button>
 
       <div class="masthead__status disconnected" id="connection-badge" title="Status MQTT">
         <span class="masthead__dot"></span>
@@ -167,24 +166,14 @@
     </div>
   </div>
 
-  <!-- Modal Informasi Monitoring GPS User (Pihak Tunanetra) -->
-  <div id="user-monitoring-modal" class="modal-overlay hidden">
+  <!-- Modal Izin Akses Lokasi Wajib (ditampilkan saat sukses connect perangkat) -->
+  <div id="location-permission-modal" class="modal-overlay hidden">
     <div class="modal-card glass">
-      <h3 class="modal-card__title">Informasi Monitoring GPS</h3>
-      <p class="modal-card__text">Keluarga atau pendamping Anda dapat memantau lokasi GPS Anda secara realtime menggunakan Kode Monitoring di bawah ini.</p>
-      
-      <div style="background: var(--bg-soft); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
-        <span class="device-card__id-label" style="display: block; font-size: 0.65rem; color: var(--text-muted);">Kode Monitoring Anda</span>
-        <div id="monitoring-code-display" style="font-size: 1.5rem; font-weight: 700; color: var(--accent); font-family: monospace; letter-spacing: 0.05em; margin: 0.4rem 0;">SB-XXXX</div>
-        <button type="button" id="btn-copy-monitoring-code" class="btn btn--outline btn--sm" style="width: auto; display: inline-flex; padding: 0.4rem 0.75rem;">Salin Kode</button>
-      </div>
-
-      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.4;">
-        Halaman Pemantau: <a href="monitoring.html" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Buka Link Monitoring</a>
-      </p>
-
+      <h3 class="modal-card__title">Akses Lokasi Perangkat</h3>
+      <p class="modal-card__text">Smart Blind membutuhkan akses lokasi untuk fitur keamanan dan monitoring keluarga.</p>
       <div class="modal-card__actions">
-        <button type="button" id="btn-monitoring-modal-close" class="btn btn--dark btn--full">Tutup</button>
+        <button type="button" id="btn-location-later" class="btn btn--outline">Nanti Saja</button>
+        <button type="button" id="btn-location-activate" class="btn btn--dark">Aktifkan Lokasi</button>
       </div>
     </div>
   </div>
