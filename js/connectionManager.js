@@ -430,11 +430,35 @@ export function getSavedDeviceId() {
 let pendingGpsDeviceId = null;
 let lastSentLat = null;
 let lastSentLng = null;
+let currentGpsDeviceId = null;
+let locationPermissionStatus = null;
+let hasPublishedUnavailableLocation = false;
+
+const GPS_INTERVAL_MS = 5000;
+const GPS_STALE_MS = 12000;
+const GPS_MAX_ACCEPTABLE_ACCURACY = 80;
 
 function updateMonitoringEntryLink(deviceId) {
   const link = document.getElementById("btn-open-monitoring-page");
   if (!link) return;
   link.setAttribute("href", buildMonitoringPageHref(deviceId));
+}
+
+function attachLocationPermissionListener(permissionStatus) {
+  if (locationPermissionStatus === permissionStatus) return;
+
+  if (locationPermissionStatus) {
+    locationPermissionStatus.onchange = null;
+  }
+
+  locationPermissionStatus = permissionStatus;
+  locationPermissionStatus.onchange = () => {
+    if (locationPermissionStatus.state !== "granted") {
+      publishGpsUnavailable(currentGpsDeviceId, "Izin lokasi tidak aktif");
+      stopGpsTracking();
+      ui.showToast("Izin lokasi berubah menjadi nonaktif. Monitoring GPS dihentikan.", "error");
+    }
+  };
 }
 
 // Memeriksa izin lokasi browser dan menampilkan modal konfirmasi jika diperlukan
@@ -443,6 +467,7 @@ function checkLocationPermissionAndStart(deviceId) {
 
   if (navigator.permissions && navigator.permissions.query) {
     navigator.permissions.query({ name: "geolocation" }).then((result) => {
+      attachLocationPermissionListener(result);
       if (result.state === "granted") {
         // Jika sudah diizinkan, langsung aktifkan Geolocation
         startGpsTracking(deviceId);
@@ -478,7 +503,7 @@ function handleActivateLocation() {
         stopGpsTracking();
         ui.showToast("Akses lokasi ditolak. Monitoring GPS dinonaktifkan.", "error");
       },
-      { enableHighAccuracy: false, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
   }
 }
@@ -518,10 +543,24 @@ function publishGpsLocation(deviceId, lat, lng, accuracy, timestamp) {
     accuracy: Math.round(accuracy),
     timestamp: timestamp,
     deviceId: deviceId,
+    available: true,
   };
   mqttService.publishLocation(topic, payload);
   lastSentLat = lat;
   lastSentLng = lng;
+  hasPublishedUnavailableLocation = false;
+}
+
+function publishGpsUnavailable(deviceId, reason = "Lokasi tidak tersedia") {
+  if (!deviceId || hasPublishedUnavailableLocation) return;
+
+  mqttService.publishLocation(`smartblind/${deviceId}/location`, {
+    deviceId,
+    available: false,
+    reason,
+    timestamp: Math.floor(Date.now() / 1000),
+  });
+  hasPublishedUnavailableLocation = true;
 }
 
 /**
@@ -536,6 +575,8 @@ function startGpsTracking(deviceId) {
   }
 
   stopGpsTracking();
+  currentGpsDeviceId = deviceId;
+  hasPublishedUnavailableLocation = false;
 
   gpsWatchId = navigator.geolocation.watchPosition(
     (position) => {
@@ -543,6 +584,25 @@ function startGpsTracking(deviceId) {
       const lng = position.coords.longitude;
       const accuracy = position.coords.accuracy;
       const timestamp = Math.floor(position.timestamp / 1000);
+      const ageMs = Date.now() - position.timestamp;
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        lastGpsData = null;
+        publishGpsUnavailable(deviceId, "Koordinat tidak valid");
+        return;
+      }
+
+      if (!Number.isFinite(accuracy) || accuracy > GPS_MAX_ACCEPTABLE_ACCURACY) {
+        lastGpsData = null;
+        publishGpsUnavailable(deviceId, "Akurasi GPS lemah");
+        return;
+      }
+
+      if (ageMs > GPS_STALE_MS) {
+        lastGpsData = null;
+        publishGpsUnavailable(deviceId, "Lokasi yang diterima sudah basi");
+        return;
+      }
 
       lastGpsData = { lat, lng, accuracy, timestamp };
 
@@ -560,10 +620,16 @@ function startGpsTracking(deviceId) {
     },
     (err) => {
       console.warn("Gagal mendapatkan koordinat GPS:", err);
+      lastGpsData = null;
+      publishGpsUnavailable(deviceId, err?.message || "GPS tidak tersedia");
+      if (gpsPublishInterval !== null) {
+        clearInterval(gpsPublishInterval);
+        gpsPublishInterval = null;
+      }
     },
     {
-      enableHighAccuracy: false,
-      maximumAge: 5000,
+      enableHighAccuracy: true,
+      maximumAge: 0,
       timeout: 15000,
     }
   );
@@ -578,6 +644,13 @@ function resetGpsInterval(deviceId) {
   }
   gpsPublishInterval = setInterval(() => {
     if (lastGpsData) {
+      const lastFixAgeMs = Date.now() - lastGpsData.timestamp * 1000;
+      if (lastFixAgeMs > GPS_STALE_MS) {
+        publishGpsUnavailable(deviceId, "Lokasi terakhir sudah kedaluwarsa");
+        lastGpsData = null;
+        return;
+      }
+
       publishGpsLocation(
         deviceId,
         lastGpsData.lat,
@@ -585,14 +658,17 @@ function resetGpsInterval(deviceId) {
         lastGpsData.accuracy,
         lastGpsData.timestamp
       );
+    } else {
+      publishGpsUnavailable(deviceId, "Belum ada data GPS terbaru");
     }
-  }, 5000);
+  }, GPS_INTERVAL_MS);
 }
 
 /**
  * Menghentikan pemantauan lokasi GPS browser
  */
 function stopGpsTracking() {
+  publishGpsUnavailable(currentGpsDeviceId, "GPS dimatikan");
   if (gpsWatchId !== null) {
     navigator.geolocation.clearWatch(gpsWatchId);
     gpsWatchId = null;
@@ -605,4 +681,5 @@ function stopGpsTracking() {
   lastSentLat = null;
   lastSentLng = null;
   pendingGpsDeviceId = null;
+  currentGpsDeviceId = null;
 }

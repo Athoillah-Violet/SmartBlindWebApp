@@ -44,7 +44,6 @@ const els = {
   valLongitude: document.getElementById("val-longitude"),
   valAccuracy: document.getElementById("val-accuracy"),
   valTimestamp: document.getElementById("val-timestamp"),
-  valDeviceStatus: document.getElementById("val-device-status"),
   statusCard: document.getElementById("status-card"),
   statusIcon: document.getElementById("status-icon"),
   statusMessage: document.getElementById("status-message"),
@@ -96,14 +95,6 @@ function setBadgeState(state) {
   else label.textContent = "Disconnected";
 }
 
-function updateDeviceStatusBadge(status) {
-  const badge = els.valDeviceStatus;
-  if (!badge) return;
-
-  badge.className = `device-status-badge ${status}`;
-  badge.textContent = status.toUpperCase();
-}
-
 function clearKeepaliveTimer() {
   if (deviceKeepaliveTimer) {
     clearTimeout(deviceKeepaliveTimer);
@@ -113,10 +104,8 @@ function clearKeepaliveTimer() {
 
 function resetKeepaliveTimer() {
   clearKeepaliveTimer();
-  updateDeviceStatusBadge("online");
 
   deviceKeepaliveTimer = setTimeout(() => {
-    updateDeviceStatusBadge("offline");
     if (activeDeviceId && authorizedDevices.has(activeDeviceId)) {
       const device = authorizedDevices.get(activeDeviceId);
       authorizedDevices.set(activeDeviceId, { ...device, status: "offline" });
@@ -229,6 +218,17 @@ function resetMonitoringPanels() {
   applySensorStatus("aman");
   if (els.statusMessage) els.statusMessage.textContent = "Menunggu pilihan perangkat...";
   if (els.statusRaw) els.statusRaw.textContent = "—";
+}
+
+function showLocationUnavailable(reason = "Lokasi tidak tersedia", timestampValue = null) {
+  setAddressLines(reason);
+  if (els.valLatitude) els.valLatitude.textContent = "—";
+  if (els.valLongitude) els.valLongitude.textContent = "—";
+  if (els.valAccuracy) els.valAccuracy.textContent = "GPS nonaktif";
+  if (els.valTimestamp) {
+    els.valTimestamp.textContent = timestampValue ? formatTimestamp(timestampValue) : "—";
+  }
+  resetMapState();
 }
 
 function formatTimestamp(timestampValue) {
@@ -364,7 +364,6 @@ function subscribeToDevice(rawDeviceId) {
   applySensorStatus("aman");
   if (els.statusMessage) els.statusMessage.textContent = "Menunggu data sensor...";
   if (els.statusRaw) els.statusRaw.textContent = "—";
-  updateDeviceStatusBadge(device.status === "online" ? "online" : "offline");
   updateRouteDevice(deviceId);
   renderDeviceList();
   subscribeTopics(deviceId);
@@ -380,7 +379,6 @@ function disconnectActiveDevice() {
   lastGeocodedLng = null;
   reverseGeocodeController?.abort();
   clearKeepaliveTimer();
-  updateDeviceStatusBadge("offline");
   setMapDeviceLabel("Belum ada perangkat dipilih");
   resetMapState();
   resetMonitoringPanels();
@@ -404,10 +402,6 @@ function handleDiscoveryMessage(payload) {
 
     authorizedDevices.set(id, updated);
     rememberMonitoringDevice(updated);
-
-    if (activeDeviceId === id) {
-      updateDeviceStatusBadge(nextStatus);
-    }
 
     renderDeviceList();
   } catch (err) {
@@ -441,11 +435,21 @@ function handleLocationMessage(payload) {
 
   try {
     const loc = JSON.parse(payload.toString());
+    if (loc?.available === false) {
+      showLocationUnavailable(loc?.reason || "Lokasi tidak tersedia", loc?.timestamp);
+      return;
+    }
+
     const latitude = Number(loc?.latitude);
     const longitude = Number(loc?.longitude);
     const accuracy = Number(loc?.accuracy ?? 0);
+    const timestamp = Number(loc?.timestamp);
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+    if (Number.isFinite(accuracy) && accuracy > 80) {
+      showLocationUnavailable("Akurasi GPS terlalu lemah", timestamp);
+      return;
+    }
 
     if (els.valLatitude) els.valLatitude.textContent = latitude.toFixed(6);
     if (els.valLongitude) els.valLongitude.textContent = longitude.toFixed(6);
@@ -454,7 +458,7 @@ function handleLocationMessage(payload) {
       els.valAccuracy.textContent = `±${roundedAccuracy} Meter`;
     }
     if (els.valTimestamp) {
-      els.valTimestamp.textContent = formatTimestamp(loc?.timestamp);
+      els.valTimestamp.textContent = formatTimestamp(timestamp);
     }
 
     updateMapLocation(latitude, longitude);
@@ -524,7 +528,6 @@ function init() {
   resetMonitoringPanels();
   renderDeviceList();
   setMapDeviceLabel("Belum ada perangkat dipilih");
-  updateDeviceStatusBadge("offline");
   initMqtt();
 }
 
