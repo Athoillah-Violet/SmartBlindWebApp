@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#F8FAFC" />
+  <title>Monitoring Smart Blind</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* Styling khusus peta Leaflet */
+    #map {
+      height: 280px;
+      width: 100%;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      margin-top: 1rem;
+      z-index: 10;
+    }
+    
+    .monitoring-info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    
+    .monitoring-info-card {
+      padding: 0.85rem;
+      text-align: left;
+    }
+    
+    .monitoring-info-card__label {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .monitoring-info-card__value {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 0.2rem;
+    }
+  </style>
+</head>
+<body>
+  <!-- Connect Monitoring Screen -->
+  <section id="connect-screen" class="connect-screen">
+    <div class="connect-card glass">
+      <div class="connect-card__logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+      </div>
+      <h2 class="connect-card__title">Monitoring Smart Blind</h2>
+      <p class="connect-card__subtitle">Masukkan Kode Monitoring perangkat (misal: SB-1294) untuk mulai melacak lokasi dan memantau sensor.</p>
+      
+      <input
+        type="text"
+        id="monitoring-code-input"
+        class="connect-input"
+        placeholder="Contoh: SB-1294"
+        autocomplete="off"
+        autocapitalize="characters"
+        spellcheck="false"
+        style="margin-bottom: 1rem;"
+      />
+      
+      <button type="button" id="btn-connect-monitoring" class="btn btn--dark btn--full">Hubungkan</button>
+      <p id="connect-feedback" class="connect-feedback" style="margin-top: 1rem;"></p>
+    </div>
+  </section>
+
+  <!-- Monitoring Dashboard -->
+  <div id="dashboard" class="app hidden">
+    <header class="masthead glass">
+      <div class="masthead__brand">
+        <div class="masthead__logo" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+        </div>
+        <div class="masthead__titles">
+          <p class="masthead__kicker">Smart Blind Monitoring</p>
+          <h1 class="masthead__title" id="device-name-display">Smart Blind Stick</h1>
+          <p class="masthead__subtitle">Kode · <span id="device-code-label">—</span></p>
+        </div>
+      </div>
+      <div class="masthead__status disconnected" id="connection-badge">
+        <span class="masthead__dot"></span>
+        <span class="masthead__connection-label">Disconnected</span>
+      </div>
+    </header>
+
+    <div class="device-actions">
+      <button type="button" id="btn-disconnect-monitoring" class="btn btn--outline btn--sm btn--danger-text">Putuskan Pemantauan</button>
+    </div>
+
+    <!-- Peta Realtime Leaflet -->
+    <section class="map-section glass" style="padding: 1.25rem;">
+      <h3 class="section-title" style="text-align: left; margin-bottom: 0.5rem;">Peta Lokasi Realtime</h3>
+      <div id="map"></div>
+    </section>
+
+    <!-- Info Detail Koordinat & Update -->
+    <section class="monitoring-info-grid">
+      <div class="monitoring-info-card glass">
+        <div class="monitoring-info-card__label">Latitude</div>
+        <div class="monitoring-info-card__value" id="val-latitude">—</div>
+      </div>
+      <div class="monitoring-info-card glass">
+        <div class="monitoring-info-card__label">Longitude</div>
+        <div class="monitoring-info-card__value" id="val-longitude">—</div>
+      </div>
+      <div class="monitoring-info-card glass" style="grid-column: span 2;">
+        <div class="monitoring-info-card__label">Update Terakhir</div>
+        <div class="monitoring-info-card__value" id="val-timestamp">—</div>
+      </div>
+    </section>
+
+    <!-- Panel Status Sensor Realtime -->
+    <section class="hero" aria-labelledby="status-heading" style="margin-top: 0.5rem;">
+      <h2 id="status-heading" class="sr-only">Status Sensor</h2>
+      <div id="status-card" class="hero__card glass status-card--safe">
+        <div class="hero__icon" id="status-icon" aria-hidden="true"></div>
+        <p class="hero__label">Status Sensor Perangkat</p>
+        <p class="hero__message" id="status-message">Menunggu data...</p>
+        <p class="hero__raw" id="status-raw">—</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script type="module" src="js/monitoringApp.js"></script>
+</body>
+</html>

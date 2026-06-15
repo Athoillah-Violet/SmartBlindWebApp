@@ -13,6 +13,11 @@ let connectSuccessTimer = null;
 let discoveryTimer = null;
 let deviceKeepaliveTimer = null;
 
+// State Geolocation GPS
+let gpsWatchId = null;
+let lastGpsData = null;
+let gpsPublishInterval = null;
+
 // Map untuk menampung perangkat-perangkat yang sedang online di jaringan
 const discoveredDevices = new Map();
 
@@ -79,6 +84,9 @@ export function initConnectionManager(statusHandler) {
   
   // Bind event tombol modal konfirmasi
   ui.bindModalActions(confirmResetWifi, cancelResetWifi);
+
+  // Bind event tombol modal monitoring GPS
+  ui.bindMonitoringActions(handleOpenMonitoring, handleCloseMonitoring, handleCopyCode);
 
   // Periksa apakah ada deviceId yang sebelumnya tersimpan di localStorage
   const saved = localStorage.getItem(STORAGE_KEY);
@@ -289,6 +297,9 @@ async function connectToDevice(rawId, isAuto = false) {
     // Mulai/jalankan timer keepalive pertama kali
     resetDeviceKeepalive();
 
+    // Aktifkan pemantauan & pengiriman lokasi GPS otomatis ke MQTT
+    startGpsTracking(deviceId);
+
     // Pastikan tersimpan di localStorage
     localStorage.setItem(STORAGE_KEY, deviceId);
     ui.hideLoading();
@@ -305,6 +316,7 @@ async function connectToDevice(rawId, isAuto = false) {
     localStorage.removeItem(STORAGE_KEY);
     ui.hideLoading();
     ui.setBadgeState("disconnected");
+    stopGpsTracking();
     
     // Jika koneksi gagal, kembali ke proses discovery
     startDiscoveryProcess();
@@ -317,6 +329,7 @@ async function connectToDevice(rawId, isAuto = false) {
 function handleChangeDevice() {
   clearSuccessTimer();
   clearDeviceKeepalive();
+  stopGpsTracking();
   mqttService.disconnectDevice();
   resetSpokenCache();
   
@@ -377,6 +390,7 @@ async function confirmResetWifi() {
 function handleDisconnect(clearStorage = true) {
   clearSuccessTimer();
   clearDeviceKeepalive();
+  stopGpsTracking();
   mqttService.disconnectDevice();
   resetSpokenCache();
 
@@ -397,4 +411,90 @@ function handleDisconnect(clearStorage = true) {
  */
 export function getSavedDeviceId() {
   return localStorage.getItem(STORAGE_KEY);
+}
+
+// ====== LOGIKA GPS GEOLOCATION & TRACKING ======
+
+/**
+ * Memulai pemantauan lokasi GPS browser menggunakan Geolocation API
+ * @param {string} deviceId - ID perangkat aktif
+ */
+function startGpsTracking(deviceId) {
+  if (!navigator.geolocation) {
+    console.warn("Geolocation API tidak didukung oleh browser ini.");
+    return;
+  }
+
+  // Bersihkan tracking GPS sebelumnya jika ada
+  stopGpsTracking();
+
+  // Minta izin lokasi dan rekam posisi secara realtime
+  gpsWatchId = navigator.geolocation.watchPosition(
+    (position) => {
+      lastGpsData = {
+        deviceId: deviceId,
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        timestamp: Math.floor(position.timestamp / 1000)
+      };
+    },
+    (err) => {
+      console.warn("Akses izin lokasi browser gagal/ditolak:", err);
+    },
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
+    }
+  );
+
+  // Jadwalkan pengiriman koordinat GPS secara berkala setiap 5 detik ke MQTT
+  gpsPublishInterval = setInterval(() => {
+    if (lastGpsData && mqttService.getActiveDeviceId() === deviceId) {
+      const topic = `smartblind/${deviceId}/location`;
+      mqttService.publishLocation(topic, lastGpsData);
+    }
+  }, 5000);
+}
+
+/**
+ * Menghentikan pemantauan lokasi GPS browser
+ */
+function stopGpsTracking() {
+  if (gpsWatchId !== null) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  if (gpsPublishInterval !== null) {
+    clearInterval(gpsPublishInterval);
+    gpsPublishInterval = null;
+  }
+  lastGpsData = null;
+}
+
+// ====== LOGIKA MODAL MONITORING GPS ======
+
+function handleOpenMonitoring() {
+  const activeId = mqttService.getActiveDeviceId();
+  if (!activeId) return;
+  ui.showUserMonitoringModal(true, activeId);
+}
+
+function handleCloseMonitoring() {
+  ui.showUserMonitoringModal(false);
+}
+
+function handleCopyCode() {
+  const activeId = mqttService.getActiveDeviceId();
+  if (!activeId) return;
+
+  const cleanId = String(activeId).trim().toUpperCase();
+  const code = `SB-${cleanId.slice(-4)}`;
+
+  navigator.clipboard.writeText(code).then(() => {
+    ui.showToast("Kode Monitoring berhasil disalin!", "success");
+  }).catch((err) => {
+    console.error("Gagal menyalin kode ke clipboard:", err);
+    ui.showToast("Gagal menyalin kode.", "error");
+  });
 }

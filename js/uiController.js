@@ -48,6 +48,12 @@ export const els = {
   btnModalConfirm: document.getElementById("btn-modal-confirm"),
   btnModalCancel: document.getElementById("btn-modal-cancel"),
   toastContainer: document.getElementById("toast-container"),
+  // Elemen GPS Monitoring Modal Baru
+  btnOpenMonitoringModal: document.getElementById("btn-open-monitoring-modal"),
+  userMonitoringModal: document.getElementById("user-monitoring-modal"),
+  monitoringCodeDisplay: document.getElementById("monitoring-code-display"),
+  btnCopyMonitoringCode: document.getElementById("btn-copy-monitoring-code"),
+  btnMonitoringModalClose: document.getElementById("btn-monitoring-modal-close"),
 };
 
 export function hideLoading() {
@@ -293,4 +299,26 @@ export function resetDashboardUi() {
   setDeviceStatus("offline");
   if (els.statusMessage) els.statusMessage.textContent = "Menunggu data...";
   if (els.statusRaw) els.statusRaw.textContent = "—";
+}
+
+// Menampilkan modal informasi monitoring GPS dan merender Kode Monitoring
+export function showUserMonitoringModal(show, deviceId = "") {
+  if (show) {
+    if (els.monitoringCodeDisplay && deviceId) {
+      // Format Kode Monitoring: SB-XXXX (4 karakter terakhir Device ID)
+      const cleanId = String(deviceId).trim().toUpperCase();
+      const codeSuffix = cleanId.slice(-4);
+      els.monitoringCodeDisplay.textContent = `SB-${codeSuffix}`;
+    }
+    els.userMonitoringModal?.classList.remove("hidden");
+  } else {
+    els.userMonitoringModal?.classList.add("hidden");
+  }
+}
+
+// Meregistrasikan event listener klik tombol monitoring GPS (buka, tutup, salin kode)
+export function bindMonitoringActions(onOpen, onClose, onCopy) {
+  els.btnOpenMonitoringModal?.addEventListener("click", onOpen);
+  els.btnMonitoringModalClose?.addEventListener("click", onClose);
+  els.btnCopyMonitoringCode?.addEventListener("click", onCopy);
 }

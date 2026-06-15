@@ -239,3 +239,14 @@ export function publishCommand(deviceId, command) {
     });
   });
 }
+
+/**
+ * Mempublikasikan data lokasi GPS ke topic tertentu secara realtime
+ * @param {string} topic - Topic lokasi tujuan (smartblind/{deviceId}/location)
+ * @param {object} payload - Objek data lokasi { deviceId, lat, lng, timestamp }
+ */
+export function publishLocation(topic, payload) {
+  if (!client) return;
+  // Gunakan QoS 0 agar ringan dan responsif untuk update koordinat periodik
+  client.publish(topic, JSON.stringify(payload), { qos: 0 });
+}

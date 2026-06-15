@@ -77,6 +77,15 @@
           <p class="masthead__subtitle">Device · <span id="device-label">—</span> · <span id="device-status-badge" class="device-status-badge offline">Offline</span></p>
         </div>
       </div>
+      
+      <!-- Tombol Menu Monitoring GPS Realtime di Pojok Kanan Atas -->
+      <button type="button" id="btn-open-monitoring-modal" class="btn-icon-only" title="Info Monitoring GPS" style="margin-left: auto; margin-right: 0.25rem;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+      </button>
+
       <div class="masthead__status disconnected" id="connection-badge" title="Status MQTT">
         <span class="masthead__dot"></span>
         <span class="masthead__connection-label">Disconnected</span>
@@ -158,10 +167,32 @@
     </div>
   </div>
 
+  <!-- Modal Informasi Monitoring GPS User (Pihak Tunanetra) -->
+  <div id="user-monitoring-modal" class="modal-overlay hidden">
+    <div class="modal-card glass">
+      <h3 class="modal-card__title">Informasi Monitoring GPS</h3>
+      <p class="modal-card__text">Keluarga atau pendamping Anda dapat memantau lokasi GPS Anda secara realtime menggunakan Kode Monitoring di bawah ini.</p>
+      
+      <div style="background: var(--bg-soft); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem;">
+        <span class="device-card__id-label" style="display: block; font-size: 0.65rem; color: var(--text-muted);">Kode Monitoring Anda</span>
+        <div id="monitoring-code-display" style="font-size: 1.5rem; font-weight: 700; color: var(--accent); font-family: monospace; letter-spacing: 0.05em; margin: 0.4rem 0;">SB-XXXX</div>
+        <button type="button" id="btn-copy-monitoring-code" class="btn btn--outline btn--sm" style="width: auto; display: inline-flex; padding: 0.4rem 0.75rem;">Salin Kode</button>
+      </div>
+
+      <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.4;">
+        Halaman Pemantau: <a href="monitoring.html" target="_blank" style="color: var(--accent); text-decoration: underline; font-weight: 600;">Buka Link Monitoring</a>
+      </p>
+
+      <div class="modal-card__actions">
+        <button type="button" id="btn-monitoring-modal-close" class="btn btn--dark btn--full">Tutup</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Container untuk Notifikasi Toast mengambang -->
   <div id="toast-container" class="toast-container"></div>
 
-  <!-- BUTTON SIMULASI PENGUJIAN: Untuk menguji UI & MQTT tanpa alat ESP32 nyata -->
+  <!-- BUTTON SIMULASI PENGUJIAN: Untuk menguji UI, GPS, & MQTT tanpa alat ESP32 nyata -->
   <div style="position: fixed; bottom: 12px; right: 12px; z-index: 1000;">
     <button id="btn-test-mock-devices" class="btn btn--dark" style="font-size: 0.65rem; padding: 0.4rem 0.6rem; border-radius: 6px; width: auto; opacity: 0.85; border: 1px solid var(--border); box-shadow: var(--shadow);">
       ⚡ Simulasi Alat (ESP32)
@@ -174,12 +205,24 @@
         client.on("connect", () => {
           const savedId = localStorage.getItem("deviceId");
           if (savedId) {
-            // Jika berada di dashboard, kirim status sensor acak untuk simulasi
+            // Jika berada di dashboard, kirim status sensor acak & lokasi GPS simulasi
             const statuses = ["aman", "depan", "kiri", "kanan", "kiri_depan", "kanan_depan", "kiri_kanan", "bahaya_total"];
             const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
             const statusTopic = `smartblind/${savedId}/status`;
             client.publish(statusTopic, randomStatus);
-            console.log("Mock data sensor '" + randomStatus + "' dikirim ke " + statusTopic);
+
+            // Simulasikan lokasi sekitar Universitas Lampung / Bandar Lampung
+            const randomLat = -5.397140 + (Math.random() - 0.5) * 0.005;
+            const randomLng = 105.266792 + (Math.random() - 0.5) * 0.005;
+            const locationTopic = `smartblind/${savedId}/location`;
+            client.publish(locationTopic, JSON.stringify({
+              deviceId: savedId,
+              lat: randomLat,
+              lng: randomLng,
+              timestamp: Math.floor(Date.now() / 1000)
+            }));
+            
+            console.log("Mock data sensor '" + randomStatus + "' & lokasi GPS terkirim ke MQTT");
           } else {
             // Jika berada di pencarian perangkat, daftarkan 2 perangkat online
             client.publish("smartblind/devices", JSON.stringify({
