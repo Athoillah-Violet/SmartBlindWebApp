@@ -30,19 +30,32 @@
         </svg>
       </div>
       <h2 id="connect-title" class="connect-card__title">Connect Smart Blind</h2>
-      <p class="connect-card__subtitle">Masukkan ID perangkat Smart Blind Anda untuk mulai terhubung.</p>
-      <label class="sr-only" for="device-id-input">ID Perangkat</label>
-      <input
-        type="text"
-        id="device-id-input"
-        class="connect-input"
-        placeholder="Contoh: SB-001"
-        autocomplete="off"
-        autocapitalize="characters"
-        spellcheck="false"
-      />
+      <!-- Subtitle status pencarian perangkat -->
+      <p class="connect-card__subtitle" id="connect-subtitle">Mencari perangkat Smart Blind yang sedang online...</p>
+
+      <!-- Kontainer untuk status pencarian atau daftar perangkat -->
+      <div id="device-discovery-container">
+        <!-- Keadaan 1: Sedang mencari perangkat (animasi loading) -->
+        <div id="discovery-loading" class="discovery-loading">
+          <div class="loading__dots" aria-hidden="true" style="margin: 20px 0; justify-content: center; display: flex; gap: 6px;">
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: dot 0.9s ease-in-out infinite;"></span>
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: dot 0.9s ease-in-out infinite; animation-delay: 0.15s;"></span>
+            <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: dot 0.9s ease-in-out infinite; animation-delay: 0.3s;"></span>
+          </div>
+          <p class="connect-feedback" style="color: var(--text-muted); font-size: 0.85rem;">Menghubungkan ke broker...</p>
+        </div>
+
+        <!-- Keadaan 2: Daftar perangkat yang ditemukan (tersembunyi secara default) -->
+        <div id="device-list-wrapper" class="hidden">
+          <h3 class="section-title" style="margin-top: 1.5rem; margin-bottom: 0.75rem; text-align: left;">Perangkat Tersedia</h3>
+          <ul id="device-list" class="device-list">
+            <!-- Item perangkat dimasukkan secara dinamis di sini -->
+          </ul>
+        </div>
+      </div>
+
+      <!-- Feedback status/koneksi -->
       <p id="connect-feedback" class="connect-feedback" role="status" aria-live="polite"></p>
-      <button type="button" id="btn-connect-device" class="btn btn--dark btn--full">Hubungkan Perangkat</button>
     </div>
   </section>
 

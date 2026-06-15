@@ -17,9 +17,12 @@ export const els = {
   loading: document.getElementById("loading-overlay"),
   connectScreen: document.getElementById("connect-screen"),
   dashboard: document.getElementById("dashboard"),
-  deviceInput: document.getElementById("device-id-input"),
+  // Elemen pencarian perangkat (auto discovery)
+  discoveryLoading: document.getElementById("discovery-loading"),
+  deviceListWrapper: document.getElementById("device-list-wrapper"),
+  deviceList: document.getElementById("device-list"),
+  connectSubtitle: document.getElementById("connect-subtitle"),
   connectFeedback: document.getElementById("connect-feedback"),
-  btnConnect: document.getElementById("btn-connect-device"),
   btnChangeDevice: document.getElementById("btn-change-device"),
   btnDisconnect: document.getElementById("btn-disconnect"),
   deviceLabel: document.getElementById("device-label"),
@@ -80,30 +83,73 @@ export function showDashboard(deviceId) {
   hideLoading();
 }
 
-export function setDeviceInput(value) {
-  if (els.deviceInput) els.deviceInput.value = value ?? "";
-}
-
-export function getDeviceInputValue() {
-  return els.deviceInput?.value ?? "";
-}
-
-export function setConnectLoading(isLoading) {
-  if (els.btnConnect) {
-    els.btnConnect.disabled = isLoading;
-    els.btnConnect.textContent = isLoading ? "Menghubungkan..." : "Hubungkan Perangkat";
+// Menampilkan status loading pencarian perangkat dengan pesan tertentu
+export function showDiscoveryLoading(message) {
+  els.deviceListWrapper?.classList.add("hidden");
+  els.discoveryLoading?.classList.remove("hidden");
+  if (els.connectSubtitle) {
+    els.connectSubtitle.textContent = "Mencari perangkat Smart Blind yang sedang online...";
   }
-  if (els.deviceInput) els.deviceInput.disabled = isLoading;
+  const feedback = els.discoveryLoading?.querySelector(".connect-feedback");
+  if (feedback) {
+    feedback.textContent = message;
+  }
 }
 
-/** @param {'success'|'error'|''} type */
-export function showConnectFeedback(message, type = "") {
-  const el = els.connectFeedback;
-  if (!el) return;
-  el.textContent = message;
-  el.classList.remove("connect-feedback--success", "connect-feedback--error");
-  if (type === "success") el.classList.add("connect-feedback--success");
-  if (type === "error") el.classList.add("connect-feedback--error");
+// Menampilkan daftar perangkat dan menyembunyikan status loading
+export function showDeviceList() {
+  els.discoveryLoading?.classList.add("hidden");
+  els.deviceListWrapper?.classList.remove("hidden");
+  if (els.connectSubtitle) {
+    els.connectSubtitle.textContent = "Ditemukan beberapa perangkat Smart Blind. Silakan pilih salah satu.";
+  }
+}
+
+// Mengecek apakah antarmuka daftar perangkat sedang aktif/terlihat
+export function isDeviceListVisible() {
+  return !els.deviceListWrapper?.classList.contains("hidden");
+}
+
+/**
+ * Merender daftar perangkat yang ditemukan ke dalam list UI
+ * @param {Array} devices - Daftar objek perangkat ({ id, name, status })
+ * @param {Function} onSelectDevice - Callback saat salah satu perangkat diklik
+ */
+export function renderDeviceList(devices, onSelectDevice) {
+  if (!els.deviceList) return;
+  els.deviceList.innerHTML = "";
+
+  devices.forEach((device) => {
+    const li = document.createElement("li");
+    li.className = "device-item";
+    li.setAttribute("role", "button");
+    li.setAttribute("tabindex", "0");
+    li.setAttribute("aria-label", `Hubungkan ke ${device.name || "Smart Blind Stick"} dengan ID ${device.id}`);
+    
+    li.innerHTML = `
+      <div class="device-item__info">
+        <span class="device-item__name">${device.name || "Smart Blind Stick"}</span>
+        <span class="device-item__id">${device.id}</span>
+      </div>
+      <div class="device-item__status">
+        <span class="device-item__status-dot"></span>
+        <span>Online</span>
+      </div>
+    `;
+
+    // Handler klik perangkat
+    li.addEventListener("click", () => onSelectDevice(device.id));
+    
+    // Aksesibilitas keyboard menggunakan tombol Enter/Space
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onSelectDevice(device.id);
+      }
+    });
+
+    els.deviceList.appendChild(li);
+  });
 }
 
 function updateSensorPanels(statusKey) {
@@ -162,13 +208,6 @@ export function updateMuteButton(isMuted) {
   const svg = document.getElementById("mute-icon-svg");
   if (svg) svg.innerHTML = isMuted ? MUTE_ICON_OFF : MUTE_ICON_ON;
   if (els.muteLabel) els.muteLabel.textContent = isMuted ? "Unmute Suara" : "Mute Suara";
-}
-
-export function bindConnectForm(onSubmit) {
-  els.btnConnect?.addEventListener("click", () => onSubmit(getDeviceInputValue()));
-  els.deviceInput?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") onSubmit(getDeviceInputValue());
-  });
 }
 
 export function bindDeviceActions(onChangeDevice, onDisconnect) {
