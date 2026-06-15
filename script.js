@@ -19,29 +19,28 @@ const firebaseConfig = {
 };
 
 // ===== Status Definitions =====
-// Mengubah pesan layar dan ucapan suara sesuai permintaan (Tanpa "Awas" dan "Di")
 const STATUS = {
   kiri: {
-    message: "KIRI ADA HALANGAN",
-    speech: "kiri ada halangan",
+    message: "AWAS KIRI ADA HALANGAN",
+    speech: "Awas kiri ada halangan",
     type: "danger",
     icon: "left",
   },
   kanan: {
-    message: "KANAN ADA HALANGAN",
-    speech: "kanan ada halangan",
+    message: "AWAS KANAN ADA HALANGAN",
+    speech: "Awas kanan ada halangan",
     type: "danger",
     icon: "right",
   },
   depan: {
-    message: "DEPAN ADA HALANGAN",
-    speech: "depan ada halangan",
+    message: "AWAS DI DEPAN ADA HALANGAN",
+    speech: "Awas di depan ada halangan",
     type: "danger",
     icon: "front",
   },
   aman: {
     message: "JALAN AMAN",
-    speech: "jalan aman",
+    speech: "Jalan aman",
     type: "safe",
     icon: "safe",
   },
@@ -115,7 +114,6 @@ function loadVoices() {
   });
 }
 
-// Menemukan suara Bahasa Indonesia
 function getIndonesianVoice(voices) {
   return (
     voices.find((v) => v.lang.startsWith("id")) ||
@@ -153,6 +151,7 @@ function updateSensorPanels(status) {
   panels.forEach(({ el, stateEl, dir }) => {
     el.classList.remove("active-danger", "active-safe");
     const isActive = status === dir;
+    const isSafe = status === "aman" || !isActive;
 
     if (isActive) {
       el.classList.add("active-danger");
@@ -209,7 +208,7 @@ function toggleMute() {
 function testSound() {
   const wasMuted = isMuted;
   isMuted = false;
-  speak("Tes suara berhasil");
+  speak("Tes suara Smart Blind App berhasil");
   isMuted = wasMuted;
 }
 
