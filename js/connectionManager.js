@@ -3,7 +3,7 @@
  */
 
 import { STORAGE_KEY } from "./config.js";
-import { normalizeDeviceId } from "./helpers.js";
+import { buildMonitoringPageHref, normalizeDeviceId, rememberMonitoringDevice } from "./helpers.js";
 import * as mqttService from "./mqttService.js";
 import * as ui from "./uiController.js";
 import { resetSpokenCache } from "./speechController.js";
@@ -90,6 +90,7 @@ export function initConnectionManager(statusHandler) {
 
   // Periksa apakah ada deviceId yang sebelumnya tersimpan di localStorage
   const saved = localStorage.getItem(STORAGE_KEY);
+  updateMonitoringEntryLink(saved);
   if (saved) {
     // Jalankan pengecekan apakah perangkat tersimpan masih online
     checkSavedDeviceAndConnect(saved);
@@ -243,6 +244,15 @@ function evaluateDiscoveredDevices() {
  * @param {string} deviceId - ID perangkat terpilih
  */
 function selectDevice(deviceId) {
+  const selectedDevice = discoveredDevices.get(deviceId) ?? {
+    id: deviceId,
+    name: "Smart Blind",
+    status: "online",
+  };
+
+  rememberMonitoringDevice(selectedDevice);
+  updateMonitoringEntryLink(deviceId);
+
   // Simpan ID perangkat terpilih ke localStorage.deviceId (STORAGE_KEY)
   localStorage.setItem(STORAGE_KEY, deviceId);
   
@@ -335,6 +345,7 @@ function handleChangeDevice() {
   
   // Hapus dari localStorage
   localStorage.removeItem(STORAGE_KEY);
+  updateMonitoringEntryLink(null);
   
   ui.resetDashboardUi();
   ui.setBadgeState("disconnected");
@@ -396,6 +407,7 @@ function handleDisconnect(clearStorage = true) {
 
   if (clearStorage) {
     localStorage.removeItem(STORAGE_KEY);
+    updateMonitoringEntryLink(null);
   }
 
   ui.resetDashboardUi();
@@ -419,6 +431,12 @@ let pendingGpsDeviceId = null;
 let lastSentLat = null;
 let lastSentLng = null;
 
+function updateMonitoringEntryLink(deviceId) {
+  const link = document.getElementById("btn-open-monitoring-page");
+  if (!link) return;
+  link.setAttribute("href", buildMonitoringPageHref(deviceId));
+}
+
 // Memeriksa izin lokasi browser dan menampilkan modal konfirmasi jika diperlukan
 function checkLocationPermissionAndStart(deviceId) {
   pendingGpsDeviceId = deviceId;
@@ -435,6 +453,7 @@ function checkLocationPermissionAndStart(deviceId) {
         // Jika diblokir/denied, nonaktifkan monitoring lokasi
         console.warn("Akses lokasi diblokir oleh pengguna di pengaturan browser.");
         stopGpsTracking();
+        ui.showToast("Lokasi belum aktif. Monitoring GPS dinonaktifkan, navigasi tetap berjalan.", "error");
       }
     });
   } else {
@@ -449,15 +468,17 @@ function handleActivateLocation() {
   if (pendingGpsDeviceId) {
     // Minta posisi sekali untuk memicu prompt browser
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      () => {
         // Sukses: Mulai pelacakan realtime
         startGpsTracking(pendingGpsDeviceId);
+        ui.showToast("Monitoring GPS aktif untuk perangkat ini.", "success");
       },
       (err) => {
         console.warn("Akses lokasi ditolak setelah prompt browser:", err);
         stopGpsTracking();
+        ui.showToast("Akses lokasi ditolak. Monitoring GPS dinonaktifkan.", "error");
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: false, maximumAge: 5000, timeout: 15000 }
     );
   }
 }
@@ -466,6 +487,7 @@ function handleActivateLocation() {
 function handleLaterLocation() {
   ui.showLocationPermissionModal(false);
   stopGpsTracking();
+  ui.showToast("Monitoring GPS dinonaktifkan untuk sementara.", "error");
 }
 
 /**
@@ -509,6 +531,7 @@ function publishGpsLocation(deviceId, lat, lng, accuracy, timestamp) {
 function startGpsTracking(deviceId) {
   if (!navigator.geolocation) {
     console.warn("Geolocation API tidak didukung oleh browser ini.");
+    ui.showToast("Browser ini belum mendukung akses lokasi realtime.", "error");
     return;
   }
 
@@ -529,8 +552,6 @@ function startGpsTracking(deviceId) {
         if (distance > 10) {
           // Kirim lokasi secara instan karena pengguna bergerak > 10m
           publishGpsLocation(deviceId, lat, lng, accuracy, timestamp);
-          // Sinkronisasikan ulang timer interval
-          resetGpsInterval(deviceId);
         }
       } else {
         // Kirim pertama kali
@@ -541,9 +562,9 @@ function startGpsTracking(deviceId) {
       console.warn("Gagal mendapatkan koordinat GPS:", err);
     },
     {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 10000,
+      enableHighAccuracy: false,
+      maximumAge: 5000,
+      timeout: 15000,
     }
   );
 

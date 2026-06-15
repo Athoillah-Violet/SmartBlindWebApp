@@ -4,6 +4,7 @@ export const MQTT_BROKER = "wss://broker.hivemq.com:8884/mqtt";
 export const TOPIC_PREFIX = "smartblind";
 // Kunci penyimpanan localStorage untuk menyimpan ID perangkat yang terpilih/aktif
 export const STORAGE_KEY = "deviceId";
+export const MONITORING_DEVICES_KEY = "smartblind.monitoring.devices";
 
 export const BADGE = {
   CONNECTING: "Connecting...",

@@ -10,68 +10,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css" />
-  <style>
-    /* Styling khusus peta Leaflet */
-    #map {
-      height: 280px;
-      width: 100%;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      margin-top: 1rem;
-      z-index: 10;
-    }
-    
-    .monitoring-info-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.75rem;
-      margin-top: 0.5rem;
-    }
-    
-    .monitoring-info-card {
-      padding: 0.85rem;
-      text-align: left;
-    }
-    
-    .monitoring-info-card__label {
-      font-size: 0.65rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    
-    .monitoring-info-card__value {
-      font-size: 0.82rem;
-      font-weight: 700;
-      color: var(--text);
-      margin-top: 0.2rem;
-    }
-
-    .device-select-card {
-      padding: 1.25rem;
-      text-align: left;
-    }
-
-    .device-select-card select {
-      width: 100%;
-      padding: 0.85rem 1rem;
-      font-family: var(--font);
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--text);
-      background: rgba(255, 255, 255, 0.9);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .device-select-card select:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-    }
-  </style>
 </head>
 <body>
   <!-- Monitoring Dashboard (Langsung Aktif Saat Dibuka) -->
@@ -95,25 +33,36 @@
       </div>
     </header>
 
-    <!-- Selektor Daftar Perangkat Online di Jaringan -->
-    <section class="device-select-card glass">
-      <label for="device-selector" class="monitoring-info-card__label" style="display: block; margin-bottom: 0.5rem; font-weight: 700;">Daftar Perangkat Tersedia</label>
-      <select id="device-selector">
-        <option value="">-- Mencari perangkat online... --</option>
-      </select>
+    <section class="monitoring-devices glass">
+      <div class="monitoring-section-head">
+        <div>
+          <p class="monitoring-info-card__label">Daftar Perangkat</p>
+          <h2 class="section-title monitoring-section-title">Perangkat Tersedia</h2>
+        </div>
+        <p class="monitoring-section-hint">Hanya perangkat yang pernah dipilih di Smart Blind App.</p>
+      </div>
+      <div id="device-selector" class="monitoring-device-list" role="listbox" aria-label="Daftar perangkat monitoring"></div>
+      <p id="device-list-empty" class="monitoring-empty">Belum ada perangkat yang dapat dimonitor. Hubungkan perangkat dari halaman utama terlebih dahulu.</p>
+      <p id="device-list-note" class="monitoring-note">Pilih satu perangkat untuk memuat lokasi realtime dan status tongkat.</p>
     </section>
 
     <!-- Peta Realtime Leaflet -->
-    <section class="map-section glass" style="padding: 1.25rem;">
-      <h3 class="section-title" style="text-align: left; margin-bottom: 0.5rem;">Peta Lokasi Realtime</h3>
+    <section class="map-section glass monitoring-map-section">
+      <div class="monitoring-section-head">
+        <div>
+          <p class="monitoring-info-card__label">Lokasi Realtime</p>
+          <h3 class="section-title monitoring-section-title">Peta Lokasi</h3>
+        </div>
+        <p id="active-device-label" class="monitoring-map-device">Belum ada perangkat dipilih</p>
+      </div>
       <div id="map"></div>
     </section>
 
     <!-- Card Informasi Lokasi (Reverse Geocoding) -->
     <section class="monitoring-info-grid">
-      <div class="monitoring-info-card glass" style="grid-column: span 2;">
-        <div class="monitoring-info-card__label">Lokasi Saat Ini (Alamat)</div>
-        <div class="monitoring-info-card__value" id="val-address" style="font-weight: 500; font-size: 0.8rem; line-height: 1.45;">Mencari alamat...</div>
+      <div class="monitoring-info-card monitoring-info-card--wide glass">
+        <div class="monitoring-info-card__label">Lokasi Saat Ini</div>
+        <div class="monitoring-info-card__value monitoring-address" id="val-address">Silakan pilih perangkat di atas.</div>
       </div>
       <div class="monitoring-info-card glass">
         <div class="monitoring-info-card__label">Latitude</div>
@@ -134,13 +83,13 @@
     </section>
 
     <!-- Panel Status Perangkat & Status Navigasi -->
-    <section class="hero" aria-labelledby="status-heading" style="margin-top: 0.5rem;">
+    <section class="hero monitoring-status-section" aria-labelledby="status-heading">
       <h2 id="status-heading" class="sr-only">Status Perangkat</h2>
       
       <!-- Status Keaktifan Tongkat (Online/Offline) -->
-      <div class="monitoring-info-card glass" style="margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-        <span class="monitoring-info-card__label" style="margin: 0; font-weight: 700;">Status Tongkat</span>
-        <span id="val-device-status" class="device-status-badge offline" style="margin: 0; font-size: 0.7rem; padding: 0.25rem 0.6rem;">OFFLINE</span>
+      <div class="monitoring-status-bar glass">
+        <span class="monitoring-info-card__label">Status Tongkat</span>
+        <span id="val-device-status" class="device-status-badge offline">OFFLINE</span>
       </div>
 
       <!-- Status Navigasi Rintangan (Realtime MQTT) -->
@@ -152,6 +101,63 @@
       </div>
     </section>
   </div>
+
+  <!-- BUTTON SIMULASI PENGUJIAN: Untuk menguji UI, GPS, & MQTT tanpa alat ESP32 nyata -->
+  <div style="position: fixed; bottom: 12px; right: 12px; z-index: 1000;">
+    <button id="btn-test-mock-devices" class="btn btn--dark" style="font-size: 0.65rem; padding: 0.4rem 0.6rem; border-radius: 6px; width: auto; opacity: 0.85; border: 1px solid var(--border); box-shadow: var(--shadow);">
+      ⚡ Simulasi Alat (ESP32)
+    </button>
+  </div>
+  <script>
+    document.getElementById('btn-test-mock-devices')?.addEventListener('click', () => {
+      if (typeof mqtt !== 'undefined') {
+        const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+        client.on("connect", () => {
+          const deviceSelector = document.getElementById("device-selector");
+          let targetId = deviceSelector ? deviceSelector.querySelector(".monitoring-device-item.is-active")?.dataset.deviceId : null;
+          
+          if (!targetId) {
+            // Jika belum ada perangkat terpilih, daftarkan 2 perangkat online
+            client.publish("smartblind/devices", JSON.stringify({
+              id: "1CC3ABC31294",
+              name: "Smart Blind Stick Ruang A",
+              status: "online"
+            }));
+            client.publish("smartblind/devices", JSON.stringify({
+              id: "2BB4DEF45678",
+              name: "Smart Blind Stick Ruang B",
+              status: "online"
+            }));
+            console.log("Mock perangkat online dikirim ke smartblind/devices");
+            alert("Perangkat simulasi dikirim ke daftar. Silakan pilih salah satu kartu perangkat.");
+          } else {
+            // Jika ada perangkat terpilih, kirim data status sensor acak & lokasi GPS simulasi
+            const statuses = ["aman", "depan", "kiri", "kanan", "kiri_depan", "kanan_depan", "kiri_kanan", "bahaya_total"];
+            const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+            const statusTopic = `smartblind/${targetId}/status`;
+            client.publish(statusTopic, randomStatus);
+
+            // Simulasikan lokasi sekitar Universitas Lampung / Bandar Lampung
+            const randomLat = -5.3644 + (Math.random() - 0.5) * 0.005;
+            const randomLng = 105.2449 + (Math.random() - 0.5) * 0.005;
+            const locationTopic = `smartblind/${targetId}/location`;
+            client.publish(locationTopic, JSON.stringify({
+              deviceId: targetId,
+              latitude: randomLat,
+              longitude: randomLng,
+              accuracy: Math.floor(5 + Math.random() * 5),
+              timestamp: Math.floor(Date.now() / 1000)
+            }));
+            
+            console.log("Mock data sensor '" + randomStatus + "' & lokasi GPS terkirim ke MQTT untuk " + targetId);
+          }
+          setTimeout(() => client.end(), 1000);
+        });
+      } else {
+        alert("Library MQTT belum dimuat!");
+      }
+    });
+  </script>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>

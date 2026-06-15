@@ -1,7 +1,12 @@
 /** UI — dashboard, connect screen, badge, sensor panels */
 
 import { BADGE, buildTopic } from "./config.js";
-import { getStatusConfig, getSensorAlerts } from "./helpers.js";
+import {
+  buildMonitoringPageHref,
+  getStatusConfig,
+  getSensorAlerts,
+  rememberMonitoringDevice,
+} from "./helpers.js";
 
 const ICONS = {
   left: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/><circle cx="6" cy="12" r="2" fill="currentColor"/></svg>`,
@@ -141,8 +146,10 @@ export function renderDeviceList(devices, onSelectDevice) {
     const statusClass = device.status === "online" ? "online" : "offline";
     const statusLabel = device.status === "online" ? "Online" : "Offline";
 
+    const monitoringHref = buildMonitoringPageHref(device.id);
+
     card.innerHTML = `
-      <div class="device-card__header">
+      <div class="device-card__header" style="padding-right: 104px;">
         <span class="device-card__name">${device.name || "Smart Blind Stick"}</span>
         <div class="device-card__status">
           <span class="device-card__status-dot ${statusClass}"></span>
@@ -154,6 +161,13 @@ export function renderDeviceList(devices, onSelectDevice) {
         <span class="device-card__id-value">${device.id}</span>
       </div>
       <button type="button" class="btn btn--dark btn--full" style="margin-top: 0.5rem;">Hubungkan</button>
+      <a href="${monitoringHref}" class="device-card__monitoring-btn" title="Monitoring" aria-label="Buka monitoring perangkat ${device.id}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+          <circle cx="12" cy="10" r="3"></circle>
+        </svg>
+        <span>Monitoring</span>
+      </a>
     `;
 
     // Handler koneksi saat card diklik
@@ -166,6 +180,17 @@ export function renderDeviceList(devices, onSelectDevice) {
     card.addEventListener("click", handleConnect);
     const btn = card.querySelector("button");
     btn?.addEventListener("click", handleConnect);
+    
+    // Stop propagation pada klik tombol monitoring agar tidak memicu handler Hubungkan
+    const monitorBtn = card.querySelector(".device-card__monitoring-btn");
+    monitorBtn?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      rememberMonitoringDevice({
+        id: device.id,
+        name: device.name || "Smart Blind",
+        status: device.status || "offline",
+      });
+    });
     
     // Aksesibilitas keyboard menggunakan Enter/Space
     card.addEventListener("keydown", (e) => {

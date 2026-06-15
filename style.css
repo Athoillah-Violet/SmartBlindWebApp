@@ -580,6 +580,7 @@ body {
 
 /* Card Perangkat Modern */
 .device-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
@@ -590,6 +591,40 @@ body {
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   text-align: left;
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.03);
+}
+
+.device-card__monitoring-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  min-width: 32px;
+  height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  text-decoration: none;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: all 0.2s ease;
+}
+
+.device-card__monitoring-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--bg-soft);
+  transform: scale(1.05);
+}
+
+.device-card__monitoring-btn span {
+  line-height: 1;
 }
 
 .device-card:hover {
@@ -807,4 +842,251 @@ body {
 .btn-icon-only svg {
   width: 20px;
   height: 20px;
+}
+
+/* Monitoring page */
+#map {
+  height: 320px;
+  width: 100%;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  z-index: 10;
+}
+
+.monitoring-devices,
+.monitoring-map-section {
+  padding: 1.25rem;
+}
+
+.monitoring-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.monitoring-section-title {
+  margin-bottom: 0;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  text-transform: none;
+  font-size: 0.95rem;
+}
+
+.monitoring-section-hint,
+.monitoring-note,
+.monitoring-map-device {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.monitoring-map-device {
+  max-width: 148px;
+  text-align: right;
+  font-weight: 600;
+}
+
+.monitoring-device-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.monitoring-device-item {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.monitoring-device-item:hover,
+.monitoring-device-item:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.08);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.monitoring-device-item.is-active {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(239, 246, 255, 0.96) 100%);
+  box-shadow: 0 10px 28px rgba(59, 130, 246, 0.12);
+}
+
+.monitoring-device-item__main {
+  min-width: 0;
+}
+
+.monitoring-device-item__name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.monitoring-device-item__id {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.monitoring-device-item__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.monitoring-device-item__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--offline);
+}
+
+.monitoring-device-item__status.online .monitoring-device-item__status-dot {
+  background: var(--online);
+  box-shadow: 0 0 10px rgba(22, 163, 74, 0.25);
+}
+
+.monitoring-device-item__status.online {
+  color: var(--online);
+}
+
+.monitoring-device-item__status.offline .monitoring-device-item__status-dot {
+  background: var(--offline);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.18);
+}
+
+.monitoring-device-item__status.offline {
+  color: var(--danger);
+}
+
+.monitoring-empty {
+  display: none;
+  padding: 0.95rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.monitoring-empty.is-visible {
+  display: block;
+}
+
+.monitoring-note {
+  margin-top: 0.75rem;
+}
+
+.monitoring-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.monitoring-info-card {
+  padding: 0.95rem;
+  text-align: left;
+}
+
+.monitoring-info-card--wide {
+  grid-column: 1 / -1;
+}
+
+.monitoring-info-card__label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.monitoring-info-card__value {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 0.3rem;
+}
+
+.monitoring-address {
+  font-weight: 500;
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.monitoring-address__line {
+  display: block;
+}
+
+.monitoring-status-section {
+  margin-top: 0.15rem;
+}
+
+.monitoring-status-bar {
+  margin-bottom: 0.75rem;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .app {
+    max-width: 920px;
+    padding: 1.25rem 1.25rem 2rem;
+  }
+
+  .monitoring-device-list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .monitoring-map-device {
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  #map {
+    height: 280px;
+  }
+
+  .monitoring-section-head {
+    flex-direction: column;
+  }
+
+  .monitoring-map-device {
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (max-width: 520px) {
+  .monitoring-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .monitoring-info-card--wide {
+    grid-column: auto;
+  }
 }
