@@ -24,8 +24,10 @@ export const els = {
   connectSubtitle: document.getElementById("connect-subtitle"),
   connectFeedback: document.getElementById("connect-feedback"),
   btnChangeDevice: document.getElementById("btn-change-device"),
+  btnResetWifi: document.getElementById("btn-reset-wifi"), // Tombol Reset WiFi
   btnDisconnect: document.getElementById("btn-disconnect"),
   deviceLabel: document.getElementById("device-label"),
+  deviceStatusBadge: document.getElementById("device-status-badge"), // Badge status online/offline perangkat
   connectionBadge: document.getElementById("connection-badge"),
   footerTopic: document.getElementById("footer-topic"),
   statusCard: document.getElementById("status-card"),
@@ -41,6 +43,11 @@ export const els = {
   btnMute: document.getElementById("btn-mute"),
   btnTest: document.getElementById("btn-test"),
   muteLabel: document.getElementById("mute-label"),
+  // Elemen Modal & Toast Baru
+  resetWifiModal: document.getElementById("reset-wifi-modal"),
+  btnModalConfirm: document.getElementById("btn-modal-confirm"),
+  btnModalCancel: document.getElementById("btn-modal-cancel"),
+  toastContainer: document.getElementById("toast-container"),
 };
 
 export function hideLoading() {
@@ -111,44 +118,60 @@ export function isDeviceListVisible() {
 }
 
 /**
- * Merender daftar perangkat yang ditemukan ke dalam list UI
+ * Merender daftar perangkat yang ditemukan ke dalam list UI berbentuk Card modern
  * @param {Array} devices - Daftar objek perangkat ({ id, name, status })
- * @param {Function} onSelectDevice - Callback saat salah satu perangkat diklik
+ * @param {Function} onSelectDevice - Callback saat perangkat dipilih/dihubungkan
  */
 export function renderDeviceList(devices, onSelectDevice) {
   if (!els.deviceList) return;
   els.deviceList.innerHTML = "";
 
   devices.forEach((device) => {
-    const li = document.createElement("li");
-    li.className = "device-item";
-    li.setAttribute("role", "button");
-    li.setAttribute("tabindex", "0");
-    li.setAttribute("aria-label", `Hubungkan ke ${device.name || "Smart Blind Stick"} dengan ID ${device.id}`);
+    const card = document.createElement("li");
+    card.className = "device-card glass";
+    card.setAttribute("role", "button");
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("aria-label", `Perangkat ${device.name || "Smart Blind Stick"} dengan ID ${device.id}, status ${device.status || "offline"}. Hubungkan.`);
     
-    li.innerHTML = `
-      <div class="device-item__info">
-        <span class="device-item__name">${device.name || "Smart Blind Stick"}</span>
-        <span class="device-item__id">${device.id}</span>
+    // Menentukan class status dot (online/offline)
+    const statusClass = device.status === "online" ? "online" : "offline";
+    const statusLabel = device.status === "online" ? "Online" : "Offline";
+
+    card.innerHTML = `
+      <div class="device-card__header">
+        <span class="device-card__name">${device.name || "Smart Blind Stick"}</span>
+        <div class="device-card__status">
+          <span class="device-card__status-dot ${statusClass}"></span>
+          <span class="device-card__status-text">${statusLabel}</span>
+        </div>
       </div>
-      <div class="device-item__status">
-        <span class="device-item__status-dot"></span>
-        <span>Online</span>
+      <div class="device-card__body">
+        <span class="device-card__id-label">Device ID</span>
+        <span class="device-card__id-value">${device.id}</span>
       </div>
+      <button type="button" class="btn btn--dark btn--full" style="margin-top: 0.5rem;">Hubungkan</button>
     `;
 
-    // Handler klik perangkat
-    li.addEventListener("click", () => onSelectDevice(device.id));
+    // Handler koneksi saat card diklik
+    const handleConnect = (e) => {
+      e.stopPropagation();
+      onSelectDevice(device.id);
+    };
+
+    // Daftarkan event listener
+    card.addEventListener("click", handleConnect);
+    const btn = card.querySelector("button");
+    btn?.addEventListener("click", handleConnect);
     
-    // Aksesibilitas keyboard menggunakan tombol Enter/Space
-    li.addEventListener("keydown", (e) => {
+    // Aksesibilitas keyboard menggunakan Enter/Space
+    card.addEventListener("keydown", (e) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
         onSelectDevice(device.id);
       }
     });
 
-    els.deviceList.appendChild(li);
+    els.deviceList.appendChild(card);
   });
 }
 
@@ -210,9 +233,54 @@ export function updateMuteButton(isMuted) {
   if (els.muteLabel) els.muteLabel.textContent = isMuted ? "Unmute Suara" : "Mute Suara";
 }
 
-export function bindDeviceActions(onChangeDevice, onDisconnect) {
+// Menampilkan atau menyembunyikan modal konfirmasi reset WiFi
+export function showResetWifiModal(show) {
+  if (show) {
+    els.resetWifiModal?.classList.remove("hidden");
+  } else {
+    els.resetWifiModal?.classList.add("hidden");
+  }
+}
+
+// Menampilkan notifikasi Toast mengambang di bagian bawah layar
+export function showToast(message, type = "success") {
+  if (!els.toastContainer) return;
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast--${type}`;
+  toast.textContent = message;
+
+  els.toastContainer.appendChild(toast);
+
+  // Efek memudar dan menghapus toast otomatis setelah 4 detik
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translate(-50%, 12px)";
+    toast.style.transition = "opacity 0.3s, transform 0.3s";
+    setTimeout(() => {
+      toast.remove();
+    }, 300);
+  }, 4000);
+}
+
+// Memperbarui badge status keaktifan perangkat (online/offline) di dashboard
+export function setDeviceStatus(status) {
+  const el = els.deviceStatusBadge;
+  if (!el) return;
+
+  el.className = `device-status-badge ${status}`;
+  el.textContent = status === "online" ? "Online" : "Offline";
+}
+
+export function bindDeviceActions(onChangeDevice, onResetWifi, onDisconnect) {
   els.btnChangeDevice?.addEventListener("click", onChangeDevice);
+  els.btnResetWifi?.addEventListener("click", onResetWifi);
   els.btnDisconnect?.addEventListener("click", onDisconnect);
+}
+
+export function bindModalActions(onConfirm, onCancel) {
+  els.btnModalConfirm?.addEventListener("click", onConfirm);
+  els.btnModalCancel?.addEventListener("click", onCancel);
 }
 
 export function bindAudioControls(onMute, onTest) {
@@ -222,6 +290,7 @@ export function bindAudioControls(onMute, onTest) {
 
 export function resetDashboardUi() {
   applyStatus("aman");
+  setDeviceStatus("offline");
   if (els.statusMessage) els.statusMessage.textContent = "Menunggu data...";
   if (els.statusRaw) els.statusRaw.textContent = "—";
 }

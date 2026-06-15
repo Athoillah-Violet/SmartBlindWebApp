@@ -1,5 +1,5 @@
 /**
- * Kelola koneksi perangkat — pencarian otomatis (discovery), auto-connect, dan pemilihan perangkat
+ * Kelola koneksi perangkat — pencarian otomatis (discovery), auto-connect, keepalive, dan reset WiFi
  */
 
 import { STORAGE_KEY } from "./config.js";
@@ -11,12 +11,16 @@ import { resetSpokenCache } from "./speechController.js";
 let onStatusMessage = null;
 let connectSuccessTimer = null;
 let discoveryTimer = null;
+let deviceKeepaliveTimer = null;
 
-// Map untuk menampung perangkat-perangkat yang sedang online
+// Map untuk menampung perangkat-perangkat yang sedang online di jaringan
 const discoveredDevices = new Map();
 
 // Flag untuk menandai apakah pencarian perangkat (discovery) sedang aktif berjalan
 let discoveryActiveState = false;
+
+// Batas waktu keepalive (12 detik tanpa data sensor MQTT = Offline)
+const KEEPALIVE_TIMEOUT = 12000;
 
 // Membersihkan timer transisi koneksi sukses
 function clearSuccessTimer() {
@@ -34,11 +38,33 @@ function clearDiscoveryTimer() {
   }
 }
 
-// Mengelola status koneksi MQTT untuk badge status di header dashboard
+// Membersihkan timer keepalive perangkat aktif
+function clearDeviceKeepalive() {
+  if (deviceKeepaliveTimer) {
+    clearTimeout(deviceKeepaliveTimer);
+    deviceKeepaliveTimer = null;
+  }
+}
+
+// Mengelola status koneksi MQTT untuk badge status broker di header dashboard
 function handleMqttState(state) {
   if (state === "connecting") ui.setBadgeState("connecting");
   else if (state === "connected") ui.setBadgeState("connected");
   else ui.setBadgeState("disconnected");
+}
+
+// Memperbarui dan mereset timer keepalive untuk mendeteksi keaktifan perangkat
+function resetDeviceKeepalive() {
+  clearDeviceKeepalive();
+  
+  // Tandai perangkat sebagai Online (hijau)
+  ui.setDeviceStatus("online");
+
+  // Jalankan timer untuk mendeteksi jika perangkat tidak mengirimkan data dalam 12 detik
+  deviceKeepaliveTimer = setTimeout(() => {
+    // Tandai perangkat sebagai Offline (merah) jika batas waktu terlampaui
+    ui.setDeviceStatus("offline");
+  }, KEEPALIVE_TIMEOUT);
 }
 
 /**
@@ -48,18 +74,84 @@ function handleMqttState(state) {
 export function initConnectionManager(statusHandler) {
   onStatusMessage = statusHandler;
 
-  // Bind event tombol pada dashboard (Ganti Device & Putuskan Koneksi)
-  ui.bindDeviceActions(handleChangeDevice, handleDisconnect);
+  // Bind event tombol pada dashboard (Ganti Perangkat, Reset WiFi, & Putuskan Koneksi)
+  ui.bindDeviceActions(handleChangeDevice, handleResetWifi, handleDisconnect);
+  
+  // Bind event tombol modal konfirmasi
+  ui.bindModalActions(confirmResetWifi, cancelResetWifi);
 
   // Periksa apakah ada deviceId yang sebelumnya tersimpan di localStorage
   const saved = localStorage.getItem(STORAGE_KEY);
   if (saved) {
-    // Jika ada, langsung lakukan koneksi otomatis ke perangkat tersebut
-    connectToDevice(saved, true);
+    // Jalankan pengecekan apakah perangkat tersimpan masih online
+    checkSavedDeviceAndConnect(saved);
   } else {
-    // Jika tidak ada, jalankan proses pencarian perangkat otomatis
+    // Jika tidak ada data tersimpan, langsung jalankan proses pencarian perangkat
     startDiscoveryProcess();
   }
+}
+
+/**
+ * Memeriksa apakah perangkat yang terakhir digunakan (tersimpan di localStorage) masih online
+ * @param {string} savedDeviceId - ID perangkat yang tersimpan
+ */
+function checkSavedDeviceAndConnect(savedDeviceId) {
+  clearDiscoveryTimer();
+  discoveredDevices.clear();
+  discoveryActiveState = true;
+
+  ui.showConnectScreen();
+  ui.showDiscoveryLoading("Memeriksa status perangkat terakhir...");
+
+  let checked = false;
+
+  // Set timeout batas waktu pengecekan keaktifan perangkat selama 1500ms
+  const checkTimer = setTimeout(() => {
+    if (checked) return;
+    checked = true;
+
+    // Periksa hasil pencarian
+    const device = discoveredDevices.get(savedDeviceId);
+    if (device && device.status === "online") {
+      // Jika masih online, langsung hubungkan otomatis
+      selectDevice(savedDeviceId);
+    } else {
+      // Jika offline, hapus penyimpanan terakhir dan tampilkan halaman pencarian perangkat
+      localStorage.removeItem(STORAGE_KEY);
+      stopDiscoveryProcess();
+      startDiscoveryProcess();
+    }
+  }, 1500);
+
+  // Jalankan pencarian MQTT
+  mqttService.startDiscovery(
+    (device) => {
+      if (!discoveryActiveState) return;
+
+      if (device.status === "online") {
+        discoveredDevices.set(device.id, device);
+      } else if (device.status === "offline") {
+        discoveredDevices.delete(device.id);
+      }
+
+      // Optimasi: Jika perangkat yang dicari ditemukan online sebelum 1.5 detik, langsung connect
+      if (device.id === savedDeviceId && device.status === "online" && !checked) {
+        checked = true;
+        clearTimeout(checkTimer);
+        selectDevice(savedDeviceId);
+      }
+    },
+    (state) => {
+      handleMqttState(state);
+      if (state !== "connected" && state !== "connecting") {
+        ui.showDiscoveryLoading("Gagal terhubung ke broker...");
+      }
+    }
+  ).catch((err) => {
+    console.error("Gagal memeriksa keaktifan perangkat:", err);
+    clearTimeout(checkTimer);
+    startDiscoveryProcess();
+  });
 }
 
 /**
@@ -70,7 +162,7 @@ function startDiscoveryProcess() {
   discoveredDevices.clear();
   discoveryActiveState = true;
 
-  // Tampilkan screen login/connect dan atur tampilan loading discovery awal
+  // Tampilkan screen connect/discovery awal
   ui.showConnectScreen();
   ui.showDiscoveryLoading("Menghubungkan ke broker...");
 
@@ -81,10 +173,8 @@ function startDiscoveryProcess() {
       if (!discoveryActiveState) return;
 
       if (device.status === "online") {
-        // Tambahkan ke Map jika status online
         discoveredDevices.set(device.id, device);
       } else if (device.status === "offline") {
-        // Hapus dari Map jika status offline
         discoveredDevices.delete(device.id);
       }
 
@@ -94,9 +184,9 @@ function startDiscoveryProcess() {
         return;
       }
 
-      // Jika kita baru mendeteksi perangkat pertama setelah daftar kosong
+      // Jika kita mendeteksi perangkat pertama setelah daftar kosong
       if (!discoveryTimer) {
-        // Beri jeda 500ms sebelum evaluasi untuk menanti barangkali ada perangkat lain yang juga online
+        // Beri jeda 500ms sebelum merender untuk menanti perangkat lain
         discoveryTimer = setTimeout(evaluateDiscoveredDevices, 500);
       }
     },
@@ -105,7 +195,7 @@ function startDiscoveryProcess() {
       handleMqttState(state);
       if (state === "connected") {
         ui.showDiscoveryLoading("Mencari perangkat Smart Blind...");
-        // Jalankan window pencarian awal selama 1.5 detik sejak berhasil terhubung ke broker
+        // Jalankan window pencarian awal selama 1.5 detik sejak terhubung ke broker
         if (!discoveryTimer && discoveredDevices.size === 0) {
           discoveryTimer = setTimeout(evaluateDiscoveredDevices, 1500);
         }
@@ -130,16 +220,12 @@ function evaluateDiscoveredDevices() {
 
   const devices = Array.from(discoveredDevices.values());
 
-  if (devices.length === 1) {
-    // Kasus 1: Hanya ada 1 perangkat ditemukan -> Langsung hubungkan otomatis
-    const singleDevice = devices[0];
-    selectDevice(singleDevice.id);
-  } else if (devices.length > 1) {
-    // Kasus 2: Ada lebih dari 1 perangkat -> Tampilkan daftar perangkat agar pengguna dapat memilih
+  if (devices.length >= 1) {
+    // Selalu tampilkan daftar perangkat berbentuk card modern agar pengguna bisa memilih
     ui.showDeviceList();
     ui.renderDeviceList(devices, selectDevice);
   } else {
-    // Kasus 3: Belum ada perangkat ditemukan -> Tetap cari dan tampilkan instruksi
+    // Jika belum ada perangkat ditemukan
     ui.showDiscoveryLoading("Mencari perangkat... Nyalakan ESP32 Anda & pastikan terhubung ke WiFi.");
   }
 }
@@ -175,6 +261,7 @@ function stopDiscoveryProcess() {
  */
 async function connectToDevice(rawId, isAuto = false) {
   clearSuccessTimer();
+  clearDeviceKeepalive();
   stopDiscoveryProcess();
 
   const deviceId = normalizeDeviceId(rawId);
@@ -191,9 +278,16 @@ async function connectToDevice(rawId, isAuto = false) {
   try {
     // Sambungkan ke topic: smartblind/{deviceId}/status
     await mqttService.connectDevice(deviceId, {
-      onMessage: (raw) => onStatusMessage?.(raw),
+      onMessage: (raw) => {
+        // Setiap kali ada data masuk, tandai perangkat sebagai Online dan perbarui timer keepalive
+        resetDeviceKeepalive();
+        onStatusMessage?.(raw);
+      },
       onStateChange: handleMqttState,
     });
+
+    // Mulai/jalankan timer keepalive pertama kali
+    resetDeviceKeepalive();
 
     // Pastikan tersimpan di localStorage
     localStorage.setItem(STORAGE_KEY, deviceId);
@@ -204,7 +298,7 @@ async function connectToDevice(rawId, isAuto = false) {
       ui.showDashboard(deviceId);
       ui.setBadgeState("connected");
       ui.showWaiting();
-    }, isAuto ? 0 : 400); // 400ms jeda visual agar transisi mulus
+    }, isAuto ? 0 : 400);
   } catch (err) {
     console.warn("Koneksi ke perangkat gagal:", err);
     mqttService.disconnectDevice();
@@ -218,10 +312,11 @@ async function connectToDevice(rawId, isAuto = false) {
 }
 
 /**
- * Handler saat tombol Ganti Device diklik
+ * Handler saat tombol Ganti Perangkat diklik
  */
 function handleChangeDevice() {
   clearSuccessTimer();
+  clearDeviceKeepalive();
   mqttService.disconnectDevice();
   resetSpokenCache();
   
@@ -236,10 +331,52 @@ function handleChangeDevice() {
 }
 
 /**
+ * Handler saat tombol Reset WiFi diklik - Menampilkan Modal Konfirmasi
+ */
+function handleResetWifi() {
+  ui.showResetWifiModal(true);
+}
+
+/**
+ * Batalkan reset WiFi - Menyembunyikan Modal Konfirmasi
+ */
+function cancelResetWifi() {
+  ui.showResetWifiModal(false);
+}
+
+/**
+ * Konfirmasi reset WiFi - Mengirim publish MQTT command reset_wifi
+ */
+async function confirmResetWifi() {
+  // Sembunyikan modal
+  ui.showResetWifiModal(false);
+  
+  const activeId = mqttService.getActiveDeviceId();
+  if (!activeId) return;
+
+  try {
+    ui.showLoading("Mengirim perintah reset...");
+    
+    // Publish MQTT ke topic smartblind/{deviceId}/command dengan payload reset_wifi
+    await mqttService.publishCommand(activeId, "reset_wifi");
+    
+    ui.hideLoading();
+    
+    // Tampilkan notifikasi Toast Sukses
+    ui.showToast("Perangkat sedang menghapus konfigurasi WiFi dan akan restart.", "success");
+  } catch (err) {
+    console.error("Gagal mengirim perintah reset:", err);
+    ui.hideLoading();
+    ui.showToast("Gagal mengirim perintah reset WiFi ke perangkat.", "error");
+  }
+}
+
+/**
  * Handler saat koneksi diputuskan
  */
 function handleDisconnect(clearStorage = true) {
   clearSuccessTimer();
+  clearDeviceKeepalive();
   mqttService.disconnectDevice();
   resetSpokenCache();
 

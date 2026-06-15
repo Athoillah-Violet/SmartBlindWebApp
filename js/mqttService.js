@@ -1,6 +1,6 @@
 /** MQTT WebSocket — topic dinamis per device, realtime */
 
-import { MQTT_BROKER, buildTopic } from "./config.js";
+import { MQTT_BROKER, buildTopic, TOPIC_PREFIX } from "./config.js";
 
 let client = null;
 let activeTopic = null;
@@ -211,4 +211,31 @@ export function getActiveTopic() {
 
 export function getActiveDeviceId() {
   return activeDeviceId;
+}
+
+/**
+ * Mempublikasikan perintah (command) MQTT ke perangkat tertentu
+ * @param {string} deviceId - ID perangkat tujuan
+ * @param {string} command - Payload perintah (misal: 'reset_wifi')
+ * @returns {Promise<void>}
+ */
+export function publishCommand(deviceId, command) {
+  return new Promise((resolve, reject) => {
+    if (!client) {
+      reject(new Error("Client MQTT belum terhubung/aktif"));
+      return;
+    }
+
+    const topic = `${TOPIC_PREFIX}/${deviceId}/command`;
+    // Gunakan QoS 1 untuk memastikan pesan sampai ke broker
+    client.publish(topic, command, { qos: 1 }, (err) => {
+      if (err) {
+        console.error(`Gagal mempublish command ke ${topic}:`, err);
+        reject(err);
+      } else {
+        console.log(`Berhasil mempublish command '${command}' ke ${topic}`);
+        resolve();
+      }
+    });
+  });
 }

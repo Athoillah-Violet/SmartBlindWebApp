@@ -558,10 +558,10 @@ body {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  max-height: 240px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  max-height: 380px;
   overflow-y: auto;
   padding-right: 4px;
 }
@@ -578,67 +578,206 @@ body {
   border-radius: 2px;
 }
 
-.device-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1.1rem;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  text-align: left;
-}
-
-.device-item:hover {
-  border-color: var(--accent);
-  background: var(--safe-bg);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.08);
-}
-
-.device-item:active {
-  transform: translateY(0);
-}
-
-.device-item__info {
+/* Card Perangkat Modern */
+.device-card {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
-  min-width: 0;
+  gap: 0.85rem;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: left;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.03);
 }
 
-.device-item__name {
-  font-size: 0.88rem;
+.device-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.08);
+  transform: translateY(-2px);
+}
+
+.device-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.device-card__name {
+  font-size: 0.95rem;
   font-weight: 600;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.device-item__id {
-  font-size: 0.72rem;
-  color: var(--text-muted);
-  font-family: monospace;
-}
-
-.device-item__status {
+.device-card__status {
   display: flex;
   align-items: center;
   gap: 0.35rem;
   font-size: 0.65rem;
   font-weight: 700;
-  color: var(--online);
   text-transform: uppercase;
-  flex-shrink: 0;
 }
 
-.device-item__status-dot {
+.device-card__status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
+  background: var(--offline);
+}
+
+.device-card__status-dot.online {
   background: var(--online);
   box-shadow: 0 0 8px var(--online);
+}
+
+.device-card__status-dot.offline {
+  background: var(--offline);
+  box-shadow: 0 0 8px var(--offline);
+}
+
+.device-card__status-text {
+  color: var(--text-muted);
+}
+
+.device-card__status-dot.online + .device-card__status-text {
+  color: var(--online);
+}
+
+.device-card__status-dot.offline + .device-card__status-text {
+  color: var(--offline);
+}
+
+.device-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.device-card__id-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.device-card__id-value {
+  font-size: 0.8rem;
+  font-family: monospace;
+  color: var(--text);
+  background: var(--bg-soft);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  width: fit-content;
+}
+
+/* Modal Overlay & Card */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  padding: 1.25rem;
+  animation: fadeIn 0.25s ease both;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  border-radius: var(--radius);
+}
+
+.modal-card__title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.modal-card__text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.modal-card__actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.btn--danger-bg {
+  background: var(--danger) !important;
+  color: white !important;
+}
+
+/* Toast Notification */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 90%;
+  max-width: 380px;
+  pointer-events: none;
+}
+
+.toast {
+  background: rgba(30, 41, 59, 0.95);
+  color: white;
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.15);
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: auto;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.toast--success {
+  border-left: 4px solid var(--online);
+}
+
+.toast--error {
+  border-left: 4px solid var(--danger);
+}
+
+/* Device Status Badge on Dashboard Title */
+.device-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.device-status-badge.online {
+  background: var(--safe-bg);
+  color: var(--online);
+}
+
+.device-status-badge.offline {
+  background: var(--danger-bg);
+  color: var(--danger);
 }

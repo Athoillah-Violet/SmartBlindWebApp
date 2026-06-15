@@ -73,7 +73,8 @@
         <div class="masthead__titles">
           <p class="masthead__kicker">Smart Blind System</p>
           <h1 class="masthead__title">Smart Blind App</h1>
-          <p class="masthead__subtitle">Device · <span id="device-label">—</span></p>
+          <!-- Indikator status perangkat (online/offline) berdasarkan data sensor keepalive -->
+          <p class="masthead__subtitle">Device · <span id="device-label">—</span> · <span id="device-status-badge" class="device-status-badge offline">Offline</span></p>
         </div>
       </div>
       <div class="masthead__status disconnected" id="connection-badge" title="Status MQTT">
@@ -83,8 +84,9 @@
     </header>
 
     <div class="device-actions">
-      <button type="button" id="btn-change-device" class="btn btn--outline btn--sm">Ganti Device</button>
-      <button type="button" id="btn-disconnect" class="btn btn--outline btn--sm btn--danger-text">Putuskan Koneksi</button>
+      <button type="button" id="btn-change-device" class="btn btn--outline btn--sm">Ganti Perangkat</button>
+      <button type="button" id="btn-reset-wifi" class="btn btn--outline btn--sm btn--danger-text">Reset WiFi</button>
+      <button type="button" id="btn-disconnect" class="btn btn--outline btn--sm">Putuskan Koneksi</button>
     </div>
 
     <section class="hero" aria-labelledby="status-heading">
@@ -143,6 +145,62 @@
       <p id="footer-topic">MQTT · smartblind/—/status</p>
     </footer>
   </div>
+
+  <!-- Modal Konfirmasi Reset WiFi (tersembunyi secara default) -->
+  <div id="reset-wifi-modal" class="modal-overlay hidden">
+    <div class="modal-card glass">
+      <h3 class="modal-card__title">Reset WiFi Perangkat</h3>
+      <p class="modal-card__text">Apakah Anda yakin ingin menghapus konfigurasi WiFi pada perangkat Smart Blind? Tindakan ini akan memaksa perangkat untuk restart dan masuk ke mode konfigurasi WiFi kembali.</p>
+      <div class="modal-card__actions">
+        <button type="button" id="btn-modal-cancel" class="btn btn--outline">Batal</button>
+        <button type="button" id="btn-modal-confirm" class="btn btn--dark btn--danger-bg">Reset & Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Container untuk Notifikasi Toast mengambang -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- BUTTON SIMULASI PENGUJIAN: Untuk menguji UI & MQTT tanpa alat ESP32 nyata -->
+  <div style="position: fixed; bottom: 12px; right: 12px; z-index: 1000;">
+    <button id="btn-test-mock-devices" class="btn btn--dark" style="font-size: 0.65rem; padding: 0.4rem 0.6rem; border-radius: 6px; width: auto; opacity: 0.85; border: 1px solid var(--border); box-shadow: var(--shadow);">
+      ⚡ Simulasi Alat (ESP32)
+    </button>
+  </div>
+  <script>
+    document.getElementById('btn-test-mock-devices')?.addEventListener('click', () => {
+      if (typeof mqtt !== 'undefined') {
+        const client = mqtt.connect("wss://broker.hivemq.com:8884/mqtt");
+        client.on("connect", () => {
+          const savedId = localStorage.getItem("deviceId");
+          if (savedId) {
+            // Jika berada di dashboard, kirim status sensor acak untuk simulasi
+            const statuses = ["aman", "depan", "kiri", "kanan", "kiri_depan", "kanan_depan", "kiri_kanan", "bahaya_total"];
+            const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+            const statusTopic = `smartblind/${savedId}/status`;
+            client.publish(statusTopic, randomStatus);
+            console.log("Mock data sensor '" + randomStatus + "' dikirim ke " + statusTopic);
+          } else {
+            // Jika berada di pencarian perangkat, daftarkan 2 perangkat online
+            client.publish("smartblind/devices", JSON.stringify({
+              id: "1CC3ABC31294",
+              name: "Smart Blind Stick Ruang A",
+              status: "online"
+            }));
+            client.publish("smartblind/devices", JSON.stringify({
+              id: "2BB4DEF45678",
+              name: "Smart Blind Stick Ruang B",
+              status: "online"
+            }));
+            console.log("Mock perangkat online dikirim ke smartblind/devices");
+          }
+          setTimeout(() => client.end(), 1000);
+        });
+      } else {
+        alert("Library MQTT belum dimuat!");
+      }
+    });
+  </script>
 
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
   <script type="module" src="js/app.js"></script>
